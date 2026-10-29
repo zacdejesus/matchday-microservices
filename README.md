@@ -1,4 +1,4 @@
-# Tienda de equipaciones · tres servicios REST
+# Matchday · tienda de equipaciones con tres servicios REST
 
 Proyecto del Equipo 4 (Programación de IA, FP Mercedarias): una tienda de equipaciones de fútbol hecha con **tres servicios REST** (Flask, FastAPI y Django) que se hablan por HTTP.
 
@@ -31,8 +31,8 @@ El borrador está en [`docs/contrato.md`](docs/contrato.md). Sin contrato no se 
 ### Paso 2 · Clonar el repo
 
 ```bash
-git clone https://github.com/zacdejesus/equipo4-tienda-equipaciones.git
-cd equipo4-tienda-equipaciones
+git clone https://github.com/zacdejesus/matchday-microservices.git
+cd matchday-microservices
 ```
 
 ### Paso 3 · Programar vuestro servicio, cada uno en su carpeta
