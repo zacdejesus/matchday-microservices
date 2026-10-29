@@ -14,9 +14,9 @@ usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
 
 | Servicio | Responsable | Framework | Puerto |
 |---|---|---|---|
-| Datos | Antonio |  | 8001 |
+| Datos | Antonio | Django | 8001 |
 | Decisión | Alejandro | FastAPI | 8002 |
-| Puerta | Evaristo |  | 8000 |
+| Puerta | Evaristo | Flask | 8000 |
 
 ## Convenciones comunes
 
@@ -200,7 +200,7 @@ Devuelve `{ "estado": "ok" }`. Sirve para que Puerta compruebe si Decisión est�
 
 ## Pendiente de decidir en equipo
 
-- [ ] Qué framework usa cada uno (FastAPI ya lo tiene Decisión).
+- [x] Qué framework usa cada uno: Antonio Django, Evaristo Flask, Alejandro FastAPI.
 - [ ] Código cuando la financiación no se aprueba en `POST /pedidos`.
 - [ ] Campos exactos de entrada de `POST /pedidos`.
 - [ ] Qué devuelve CU4 exactamente (¿qué recurso inexistente probamos?).
