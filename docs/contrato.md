@@ -14,9 +14,9 @@ usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
 
 | Servicio | Responsable | Framework | Puerto |
 |---|---|---|---|
-| Datos | Antonio | (a decidir: Flask o Django) | 8001 |
+| Datos | Antonio |  | 8001 |
 | Decisión | Alejandro | FastAPI | 8002 |
-| Puerta | Evaristo | (a decidir: Flask o Django) | 8000 |
+| Puerta | Evaristo |  | 8000 |
 
 ## Convenciones comunes
 
@@ -29,8 +29,8 @@ usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
   { "detail": "Mensaje claro para el usuario" }
   ```
 
-  (Es el formato que FastAPI usa por defecto; en Flask y Django se devuelve igual con `jsonify` / `JsonResponse`.)
-- **Datos mal enviados:** 400 en Flask y Django; 422 en FastAPI (validación automática de pydantic). Puerta trata 400 y 422 igual.
+  (Es el formato que FastAPI usa por defecto; en otros frameworks se devuelve igual a mano.)
+- **Datos mal enviados:** 400, o 422 en FastAPI (validación automática de pydantic). Puerta trata 400 y 422 igual.
 - Llamadas entre servicios: siempre con `requests`, `timeout=3` y captura de `requests.RequestException`. Si el otro servicio no responde → **503**.
 
 ---

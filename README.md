@@ -1,6 +1,6 @@
 # Matchday · tienda de equipaciones con tres servicios REST
 
-Proyecto del Equipo 4 (Programación de IA, FP Mercedarias): una tienda de equipaciones de fútbol hecha con **tres servicios REST** (Flask, FastAPI y Django) que se hablan por HTTP.
+Proyecto del Equipo 4 (Programación de IA, FP Mercedarias): una tienda de equipaciones de fútbol hecha con **tres servicios REST** que se hablan por HTTP.
 
 ```
 usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
@@ -10,9 +10,9 @@ usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
 
 | Servicio | Quién | Framework | Puerto | Carpeta |
 |---|---|---|---|---|
-| 🗄 Datos | Antonio | Flask o Django (a decidir) | 8001 | `datos/` |
+| 🗄 Datos | Antonio |  | 8001 | `datos/` |
 | 🧠 Decisión | Alejandro | FastAPI | 8002 | `decision/` |
-| 🚪 Puerta | Evaristo | Flask o Django (a decidir) | 8000 | `puerta/` |
+| 🚪 Puerta | Evaristo |  | 8000 | `puerta/` |
 
 **Entrega: hasta el 5 de noviembre.**
 
@@ -26,7 +26,7 @@ El borrador está en [`docs/contrato.md`](docs/contrato.md). Sin contrato no se 
 
 - Leed vuestra sección y corregid lo que no os encaje (rutas, campos, códigos).
 - Al final del contrato hay una lista **"Pendiente de decidir en equipo"**: hay que cerrarla entre los tres.
-- **Elegid framework:** Decisión ya usa FastAPI, así que entre vosotros dos tiene que haber un Flask y un Django.
+- **Elegid vuestro framework** y apuntadlo en la tabla de arriba.
 
 ### Paso 2 · Clonar el repo
 
@@ -107,9 +107,9 @@ cd decision
 pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload
 
-# Datos – (Antonio: completar)
+# Datos (Antonio)
 
-# Puerta – (Evaristo: completar)
+# Puerta (Evaristo)
 ```
 
 ## ✅ Casos de uso que tiene que cumplir el equipo
