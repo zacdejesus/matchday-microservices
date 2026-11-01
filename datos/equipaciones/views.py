@@ -4,9 +4,16 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 EQUIPACIONES = [
-    {"id": 1, "equipo": "Betis", "temporada": "2025/26", "talla": "M", "precio": 89.99, "stock": 10},
-    {"id": 2, "equipo": "Sevilla", "temporada": "2025/26", "talla": "L", "precio": 84.99, "stock": 5},
-    {"id": 3, "equipo": "Real Madrid", "temporada": "2025/26", "talla": "S", "precio": 99.99, "stock": 8},
+    {"id": 1, "equipo": "Betis", "temporada": "2025/26", "talla": "M", "precio": 89.95, "stock": 12},
+    {"id": 2, "equipo": "Betis", "temporada": "2024/25", "talla": "M", "precio": 59.95, "stock": 4},
+    {"id": 3, "equipo": "Betis", "temporada": "2025/26", "talla": "L", "precio": 89.95, "stock": 0},
+    {"id": 4, "equipo": "Sevilla", "temporada": "2025/26", "talla": "L", "precio": 84.95, "stock": 5},
+    {"id": 5, "equipo": "Real Madrid", "temporada": "2025/26", "talla": "S", "precio": 109.95, "stock": 8},
+    {"id": 6, "equipo": "Barcelona", "temporada": "2025/26", "talla": "M", "precio": 104.95, "stock": 10},
+    {"id": 7, "equipo": "Atlético de Madrid", "temporada": "2024/25", "talla": "XL", "precio": 54.95, "stock": 6},
+    {"id": 8, "equipo": "Valencia", "temporada": "2025/26", "talla": "M", "precio": 74.95, "stock": 7},
+    {"id": 9, "equipo": "Athletic Club", "temporada": "2024/25", "talla": "L", "precio": 49.95, "stock": 3},
+    {"id": 10, "equipo": "Real Sociedad", "temporada": "2025/26", "talla": "S", "precio": 79.95, "stock": 9},
 ]
 
 CAMPOS = ["equipo", "temporada", "talla", "precio", "stock"]
@@ -62,10 +69,20 @@ def leer_y_validar(request):
 @csrf_exempt
 def lista_equipaciones(request):
     if request.method == "GET":
-        equipo = request.GET.get("equipo")
         resultado = EQUIPACIONES
+
+        equipo = request.GET.get("equipo")
         if equipo:
-            resultado = [e for e in EQUIPACIONES if e["equipo"].lower() == equipo.lower()]
+            resultado = [e for e in resultado if e["equipo"].lower() == equipo.lower()]
+
+        max_precio = request.GET.get("max_precio")
+        if max_precio is not None:
+            try:
+                limite = float(max_precio)
+            except ValueError:
+                return error("max_precio debe ser un número", 400)
+            resultado = [e for e in resultado if e["precio"] <= limite]
+
         return JsonResponse(resultado, safe=False)
 
     if request.method == "POST":
