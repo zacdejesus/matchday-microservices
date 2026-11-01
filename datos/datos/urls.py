@@ -22,4 +22,6 @@ from equipaciones import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('equipaciones', views.lista_equipaciones),
+    path('equipaciones/<int:id>', views.detalle_equipacion),
+    path('equipaciones/<int:id>/stock', views.cambiar_stock),
 ]
