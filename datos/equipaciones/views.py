@@ -1,4 +1,5 @@
 import json
+import re
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -9,27 +10,51 @@ EQUIPACIONES = [
 ]
 
 CAMPOS = ["equipo", "temporada", "talla", "precio", "stock"]
+TALLAS = ["XS", "S", "M", "L", "XL", "XXL"]
+
+
+def error(mensaje, codigo):
+    """Todos los errores tienen el mismo formato: {"detail": "..."}"""
+    return JsonResponse({"detail": mensaje}, status=codigo)
+
+
+def es_numero(valor):
+    # En Python, True y False cuentan como números, así que los descartamos
+    return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+
+
+def es_entero(valor):
+    return isinstance(valor, int) and not isinstance(valor, bool)
 
 
 def leer_y_validar(request):
-    """Devuelve (datos, None) si todo va bien, o (None, error) si hay algo mal."""
+    """Devuelve (datos, None) si todo va bien, o (None, respuesta_de_error) si algo falla."""
     try:
         datos = json.loads(request.body)
     except json.JSONDecodeError:
-        return None, JsonResponse({"error": "JSON no válido"}, status=400)
+        return None, error("JSON no válido", 400)
 
     if not isinstance(datos, dict):
-        return None, JsonResponse({"error": "Se esperaba un objeto JSON"}, status=400)
+        return None, error("Se esperaba un objeto JSON", 400)
 
     faltan = [c for c in CAMPOS if c not in datos]
     if faltan:
-        return None, JsonResponse({"error": "Faltan campos", "campos": faltan}, status=400)
+        return None, error("Faltan campos: " + ", ".join(faltan), 400)
 
-    if not isinstance(datos["precio"], (int, float)) or datos["precio"] <= 0:
-        return None, JsonResponse({"error": "El precio debe ser un número mayor que 0"}, status=400)
+    if not isinstance(datos["equipo"], str) or not datos["equipo"].strip():
+        return None, error("El equipo debe ser un texto no vacío", 400)
 
-    if not isinstance(datos["stock"], int) or datos["stock"] < 0:
-        return None, JsonResponse({"error": "El stock debe ser un número entero, 0 o más"}, status=400)
+    if not isinstance(datos["temporada"], str) or not re.fullmatch(r"\d{4}/\d{2}", datos["temporada"]):
+        return None, error("La temporada debe tener formato AAAA/AA, por ejemplo 2025/26", 400)
+
+    if datos["talla"] not in TALLAS:
+        return None, error("La talla debe ser una de: " + ", ".join(TALLAS), 400)
+
+    if not es_numero(datos["precio"]) or datos["precio"] <= 0:
+        return None, error("El precio debe ser un número mayor que 0", 400)
+
+    if not es_entero(datos["stock"]) or datos["stock"] < 0:
+        return None, error("El stock debe ser un número entero, 0 o más", 400)
 
     return datos, None
 
@@ -44,32 +69,31 @@ def lista_equipaciones(request):
         return JsonResponse(resultado, safe=False)
 
     if request.method == "POST":
-        datos, error = leer_y_validar(request)
-        if error:
-            return error
+        datos, fallo = leer_y_validar(request)
+        if fallo:
+            return fallo
 
         nuevo_id = max([e["id"] for e in EQUIPACIONES], default=0) + 1
         nueva = {"id": nuevo_id, **{c: datos[c] for c in CAMPOS}}
         EQUIPACIONES.append(nueva)
         return JsonResponse(nueva, status=201)
 
-    return JsonResponse({"error": "Método no permitido"}, status=405)
+    return error("Método no permitido", 405)
 
 
 @csrf_exempt
 def detalle_equipacion(request, id):
-    # Buscamos la camiseta con ese id
     equipacion = next((e for e in EQUIPACIONES if e["id"] == id), None)
     if equipacion is None:
-        return JsonResponse({"error": "Equipación no encontrada"}, status=404)
+        return error("Equipación no encontrada", 404)
 
     if request.method == "GET":
         return JsonResponse(equipacion)
 
     if request.method == "PUT":
-        datos, error = leer_y_validar(request)
-        if error:
-            return error
+        datos, fallo = leer_y_validar(request)
+        if fallo:
+            return fallo
         for c in CAMPOS:
             equipacion[c] = datos[c]
         return JsonResponse(equipacion)
@@ -78,35 +102,32 @@ def detalle_equipacion(request, id):
         EQUIPACIONES.remove(equipacion)
         return HttpResponse(status=204)
 
-    return JsonResponse({"error": "Método no permitido"}, status=405)
+    return error("Método no permitido", 405)
+
 
 @csrf_exempt
 def cambiar_stock(request, id):
     if request.method != "PATCH":
-        return JsonResponse({"error": "Método no permitido"}, status=405)
+        return error("Método no permitido", 405)
 
     equipacion = next((e for e in EQUIPACIONES if e["id"] == id), None)
     if equipacion is None:
-        return JsonResponse({"error": "Equipación no encontrada"}, status=404)
+        return error("Equipación no encontrada", 404)
 
     try:
         datos = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON no válido"}, status=400)
+        return error("JSON no válido", 400)
 
     if not isinstance(datos, dict) or "delta" not in datos:
-        return JsonResponse({"error": "Falta el campo delta"}, status=400)
+        return error("Falta el campo delta", 400)
 
-    delta = datos["delta"]
-    if isinstance(delta, bool) or not isinstance(delta, int):
-        return JsonResponse({"error": "delta debe ser un número entero"}, status=400)
+    if not es_entero(datos["delta"]):
+        return error("delta debe ser un número entero", 400)
 
-    nuevo_stock = equipacion["stock"] + delta
+    nuevo_stock = equipacion["stock"] + datos["delta"]
     if nuevo_stock < 0:
-        return JsonResponse(
-            {"error": "Stock insuficiente", "stock_actual": equipacion["stock"]},
-            status=409,
-        )
+        return error("Stock insuficiente: quedan " + str(equipacion["stock"]) + " unidades", 409)
 
     equipacion["stock"] = nuevo_stock
     return JsonResponse(equipacion)
