@@ -55,15 +55,16 @@ usuario --> PUERTA (:8000) --> DECISIÓN (:8002) --> DATOS (:8001)
 
 | Método | Ruta | Entrada | Salida | Códigos |
 |---|---|---|---|---|
-| GET | `/equipaciones?equipo=Betis` | – | lista de equipaciones (filtro opcional) | 200 |
+| GET | `/equipaciones?equipo=Betis&max_precio=60` | – | lista de equipaciones (filtros opcionales) | 200 · 400 |
 | POST | `/equipaciones` | `{equipo, temporada, talla, precio, stock}` | la equipación creada, con `id` | 201 · 400 |
 | GET | `/equipaciones/{id}` | – | una equipación | 200 · 404 |
 | PUT | `/equipaciones/{id}` | `{equipo, temporada, talla, precio, stock}` | la equipación modificada | 200 · 400 · 404 |
 | DELETE | `/equipaciones/{id}` | – | sin cuerpo | 204 · 404 |
-| PATCH | `/equipaciones/{id}/stock` | `{delta}` (ej. `-1`) | la equipación con el stock nuevo | 200 · 404 · 409 |
-
+| PATCH | `/equipaciones/{id}/stock` | `{delta}` (ej. `-1`) | la equipación con el stock nuevo | 200 · 400 · 404 · 409 |
 - 409 si el stock quedaría por debajo de 0.
-- (Antonio: completa ejemplos y el reto `?max_precio=60`.)
+- 400 en el PATCH también si falta `delta` o no es un número entero.
+- 400 en el GET si `max_precio` no es un número.
+- Los errores llevan el formato `{ "detail": "mensaje" }`.
 
 ---
 
