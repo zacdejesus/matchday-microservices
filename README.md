@@ -83,8 +83,14 @@ Lo que ve el usuario: orquesta el flujo y protege la API.
 
 - Sin clave o con clave incorrecta: **401**. Más de 5 peticiones por minuto con la misma clave: **429**.
 - Si Decisión o Datos no responden: **503** con un mensaje que diga cuál.
-- El flujo de `POST /pedidos` está propuesto en el contrato: confírmalo.
-- `test_integracion.py` (CU1–CU5) lo hacemos entre todos, pero lo lógico es que lo lidere Puerta.
+- `POST /pedidos` recibe `{equipo, talla, presupuesto, ingresos_mensuales, plazos}`. Pide recomendación y financiación a Decisión; si se aprueba, descuenta una unidad en Datos y guarda el pedido en memoria.
+- Si no hay recomendaciones disponibles, responde **409**. Si la financiación no se aprueba, responde **400** con el motivo.
+- El límite de 5 peticiones por minuto se comparte entre `GET` y `POST` para cada clave. `GET /pedidos` también puede responder **429** si se alcanza el límite.
+- Si Datos informa de que no encuentra la equipación, Puerta devuelve **404**.
+- Para ejecutar y probar Puerta, consulta [puerta/README.md](puerta/README.md).
+- Las pruebas unitarias se ejecutan desde `puerta/` con `python -m unittest -v test_app.py`.
+- El script de 10 peticiones para comprobar el límite está en [puerta/prueba_limite/](puerta/prueba_limite/); sus instrucciones están en [puerta/prueba_limite/README.md](puerta/prueba_limite/README.md).
+- `test_integracion.py` (CU1–CU5) se prepara entre todos; Puerta lidera la comprobación del flujo completo.
 - ⭐ Reto: un script que haga 10 peticiones seguidas y demuestre el límite (como *middleware* o dependencia).
 
 ## 🧠 Alejandro · Decisión (puerto 8002)
@@ -106,11 +112,19 @@ Una terminal por servicio:
 cd decision
 pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload
-
-# Datos (Django) – Antonio: completar
-
-# Puerta (Flask) – Evaristo: completar
 ```
+
+`# Datos (Django) – Antonio: completar`
+
+```bash
+# Puerta (Flask), puerto 8000; en otra terminal, desde la raíz del repositorio
+cd puerta
+pip install -r requirements.txt
+API_KEY="una-clave-local" python app.py
+```
+
+En las peticiones a Puerta, envía `X-API-Key: una-clave-local` (o la misma
+clave que hayas configurado en la variable `API_KEY`).
 
 ## ✅ Casos de uso que tiene que cumplir el equipo
 
@@ -133,9 +147,20 @@ equipo_4/
 ├── decision/
 ├── puerta/
 ├── docs/contrato.md
-├── test_integracion.py
+├── tests_integracion/
+│   ├── test_integracion.py
+│   ├── requirements.txt
+│   └── README.md
 └── README.md
 ```
+
+## Evaristo · Puerta: framework y uso de IA
+
+Se eligió **Flask** por ser ligero y sencillo para este servicio, que valida las peticiones del usuario y coordina las llamadas HTTP a Decisión y Datos.
+
+Se usó IA como apoyo para implementar la autenticación con `X-API-Key`, el límite de cinco peticiones por minuto y el flujo de pedidos. La propuesta se
+contrastó con las rutas y los campos del contrato y de los servicios; se concretaron las respuestas para financiación denegada y recomendación vacía.
+También se añadieron pruebas unitarias con las llamadas HTTP simuladas y un script para comprobar el límite. El código y las pruebas se revisaron antes de incorporarlos.
 
 ## Pendiente para el README final
 
