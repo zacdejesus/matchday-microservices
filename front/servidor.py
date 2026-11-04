@@ -1,0 +1,119 @@
+"""Test panel for the three services – Team 4.
+
+Serves index.html and forwards requests to the services from Python,
+so the browser never hits CORS problems.
+
+Run from the equipo_4 folder (standard library only, nothing to install):
+    python front/servidor.py
+Then open http://localhost:8080
+"""
+
+import json
+import time
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+PORT = 8080
+TIMEOUT_SECONDS = 3
+INDEX = Path(__file__).with_name("index.html")
+
+# Only these targets can be reached, so the panel is not an open proxy
+SERVICES = {
+    "datos": {"name": "Datos", "port": 8001, "health": "/equipaciones"},
+    "decision": {"name": "Decisión", "port": 8002, "health": "/salud"},
+    # Puerta has no /salud: a 401 without key also proves it is alive
+    "puerta": {"name": "Puerta", "port": 8000, "health": "/pedidos"},
+}
+ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+
+
+def call_service(service, method, path, body=None, headers=None):
+    """Make one request and describe the result. Never raises."""
+    url = f"http://localhost:{SERVICES[service]['port']}{path}"
+    data = None
+    request_headers = dict(headers or {})
+    if body is not None:
+        data = json.dumps(body).encode()
+        request_headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=request_headers)
+
+    start = time.perf_counter()
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            status, raw = response.status, response.read()
+    except urllib.error.HTTPError as error:  # 4xx / 5xx: the service answered
+        status, raw = error.code, error.read()
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        reason = getattr(error, "reason", error)
+        return {
+            "url": url,
+            "codigo": None,
+            "ms": round((time.perf_counter() - start) * 1000),
+            "error": f"No responde ({reason})",
+        }
+
+    text = raw.decode(errors="replace")
+    try:
+        payload = json.loads(text) if text else None
+    except ValueError:
+        payload = text[:2000]
+    return {
+        "url": url,
+        "codigo": status,
+        "ms": round((time.perf_counter() - start) * 1000),
+        "cuerpo": payload,
+    }
+
+
+class Handler(BaseHTTPRequestHandler):
+    def send_json(self, payload, status=200):
+        raw = json.dumps(payload, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_GET(self):
+        if self.path in ("/", "/index.html"):
+            raw = INDEX.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+        elif self.path == "/api/estado":
+            status = {}
+            for key, service in SERVICES.items():
+                result = call_service(key, "GET", service["health"])
+                status[key] = {**result, "nombre": service["name"], "puerto": service["port"]}
+            self.send_json(status)
+        else:
+            self.send_json({"detail": "No existe"}, 404)
+
+    def do_POST(self):
+        if self.path != "/api/probar":
+            self.send_json({"detail": "No existe"}, 404)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            order = json.loads(self.rfile.read(length) or b"{}")
+            service = order["servicio"]
+            method = order.get("metodo", "GET").upper()
+            path = order.get("ruta", "/")
+            if service not in SERVICES or method not in ALLOWED_METHODS or not path.startswith("/"):
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            self.send_json({"detail": "Petición de prueba mal formada"}, 400)
+            return
+        self.send_json(call_service(service, method, path, order.get("cuerpo"), order.get("cabeceras")))
+
+    def log_message(self, *args):  # keep the terminal quiet
+        pass
+
+
+if __name__ == "__main__":
+    print(f"Panel de pruebas en http://localhost:{PORT}  (Ctrl+C para salir)")
+    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

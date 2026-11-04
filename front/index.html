@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchday · Panel de pruebas</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #677085; --line: #dfe3ea;
+    --ok: #12805c; --ok-bg: #e3f5ee; --bad: #c62f3b; --bad-bg: #fde8ea;
+    --warn: #9a6200; --warn-bg: #fdf1dc; --accent: #2f5bd3; --code-bg: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #959db0; --line: #2c3340;
+      --ok: #4cc79a; --ok-bg: #143328; --bad: #ff7b86; --bad-bg: #3a1a1f;
+      --warn: #f2b85a; --warn-bg: #3a2c12; --accent: #7c9cff; --code-bg: #232a36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0; }
+  h2 { font-size: 18px; margin: 32px 0 12px; }
+  .muted { color: var(--muted); }
+  code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 6px 0 0; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
+           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: wait; }
+  input, select, textarea { font: inherit; color: var(--text); background: var(--card);
+           border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .banner { margin-top: 20px; padding: 12px 16px; border-radius: 10px; font-weight: 500; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .banner ul { margin: 6px 0 0; padding-left: 20px; font-weight: 400; }
+
+  .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card.up { border-left: 5px solid var(--ok); }
+  .card.down { border-left: 5px solid var(--bad); }
+  .card h3 { margin: 0; font-size: 16px; display: flex; justify-content: space-between; gap: 8px; }
+  .card .detail { margin-top: 6px; font-size: 13px; }
+
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.idle { background: var(--code-bg); color: var(--muted); }
+
+  ol.start { padding-left: 20px; }
+  ol.start li { margin-bottom: 10px; }
+
+  .group { margin-top: 20px; font-weight: 600; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
+  .step-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .step-head .title { flex: 1 1 260px; }
+  .step-head .title b { margin-right: 6px; }
+  .step .req { font-size: 13px; color: var(--muted); margin-top: 4px; word-break: break-all; }
+  .step .note { font-size: 13px; color: var(--warn); margin-top: 4px; }
+  .step .result { margin-top: 8px; font-size: 13px; }
+  .step details summary { cursor: pointer; color: var(--muted); }
+  .summary-line { margin-top: 12px; font-weight: 500; }
+
+  .free { display: grid; gap: 8px; grid-template-columns: 140px 110px 1fr auto; align-items: center; }
+  @media (max-width: 700px) { .free { grid-template-columns: 1fr 1fr; } .free input[type=text] { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>⚽ Matchday · Panel de pruebas</h1>
+      <div class="muted">Equipo 4: Puerta :8000 · Datos :8001 · Decisión :8002</div>
+    </div>
+    <div class="toolbar">
+      <label>X-API-Key <input id="apiKey" size="14"></label>
+      <button id="refresh">Comprobar ahora</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner">Comprobando servicios…</div>
+  <div id="services" class="services"></div>
+  <div class="muted" style="font-size:13px;margin-top:8px">Se comprueba solo cada 5 segundos. <span id="lastCheck"></span></div>
+
+  <h2>Cómo arrancar todo</h2>
+  <ol class="start">
+    <li>Abre una terminal por servicio, todas dentro de la carpeta <code>equipo_4</code>.</li>
+    <li><b>Datos</b> (Django): <pre>cd datos
+pip install django
+python manage.py runserver 8001</pre></li>
+    <li><b>Decisión</b> (FastAPI): <pre>cd decision
+pip install -r requirements.txt
+uvicorn main:app --port 8002 --reload</pre></li>
+    <li><b>Puerta</b> (Flask): <pre>cd puerta
+pip install -r requirements.txt
+flask --app app run --port 8000</pre>
+      <span class="muted">(si el archivo no se llama app.py, cambia <code>--app</code>)</span></li>
+    <li><b>Este panel</b>: <pre>python front/servidor.py</pre> y abre <code>http://localhost:8080</code>.</li>
+    <li>Cuando las tres tarjetas de arriba estén en verde, pulsa <b>Probar todo</b> o ve paso a paso.</li>
+  </ol>
+
+  <h2>Pasos para probar</h2>
+  <div class="toolbar">
+    <button id="runAll" class="primary">Probar todo</button>
+    <span class="muted" style="font-size:13px">El CU5 y el reto se prueban aparte, porque hay que apagar un servicio o gastan el límite de peticiones.</span>
+  </div>
+  <div id="summary" class="summary-line"></div>
+  <div id="steps"></div>
+
+  <h2>Petición libre</h2>
+  <div class="free">
+    <select id="freeService">
+      <option value="puerta">Puerta :8000</option>
+      <option value="datos">Datos :8001</option>
+      <option value="decision">Decisión :8002</option>
+    </select>
+    <select id="freeMethod">
+      <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+    </select>
+    <input id="freePath" type="text" value="/equipaciones" placeholder="/ruta">
+    <button id="freeSend" class="primary">Enviar</button>
+  </div>
+  <textarea id="freeBody" rows="4" style="margin-top:8px" placeholder='Cuerpo JSON (opcional), p. ej. {"delta": -1}'></textarea>
+  <div id="freeResult" class="step result" style="display:none"></div>
+</main>
+
+<script>
+// ---- Test steps: edit this list if the contract changes -------------------
+const VALID_ORDER = { equipo: "Betis", talla: "M", presupuesto: 100, ingresos_mensuales: 1200, plazos: 6 };
+const { talla, ...ORDER_WITHOUT_SIZE } = VALID_ORDER;
+
+const STEPS = [
+  { group: "Datos (Antonio)", id: "D1", title: "Listar el catálogo", needs: ["datos"],
+    service: "datos", method: "GET", path: "/equipaciones", expect: [200] },
+  { group: "Datos (Antonio)", id: "D2", title: "Filtro con max_precio no numérico", needs: ["datos"],
+    service: "datos", method: "GET", path: "/equipaciones?max_precio=abc", expect: [400] },
+  { group: "Datos (Antonio)", id: "D3", title: "Equipación que no existe", needs: ["datos"],
+    service: "datos", method: "GET", path: "/equipaciones/999", expect: [404] },
+
+  { group: "Decisión (Alejandro)", id: "E1", title: "Salud", needs: ["decision"],
+    service: "decision", method: "GET", path: "/salud", expect: [200] },
+  { group: "Decisión (Alejandro)", id: "E2", title: "Financiación aprobada (ejemplo del contrato: cuota 30,88 €)", needs: ["decision"],
+    service: "decision", method: "POST", path: "/financiacion",
+    body: { importe: 179.90, ingresos_mensuales: 1200, plazos: 6 }, expect: [200] },
+  { group: "Decisión (Alejandro)", id: "E3", title: "Financiación con 30 plazos (máximo 24)", needs: ["decision"],
+    service: "decision", method: "POST", path: "/financiacion",
+    body: { importe: 100, ingresos_mensuales: 1200, plazos: 30 }, expect: [422] },
+  { group: "Decisión (Alejandro)", id: "E4", title: "Recomendar Betis talla M hasta 100 €", needs: ["decision", "datos"],
+    service: "decision", method: "POST", path: "/recomendar",
+    body: { equipo: "Betis", presupuesto: 100, talla: "M" }, expect: [200] },
+
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1", title: "Listar pedidos con clave válida", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos", key: true, expect: [200] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1b", title: "Listar pedidos sin clave", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos", expect: [401] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU2", title: "Crear pedido sin talla", needs: ["puerta"],
+    service: "puerta", method: "POST", path: "/pedidos", key: true, body: ORDER_WITHOUT_SIZE, expect: [400, 422] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU3", title: "Pedido completo Puerta → Decisión → Datos", needs: ["puerta", "decision", "datos"],
+    service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [201] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU4", title: "Recurso que no existe: el 404 llega al usuario", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos/999", key: true, expect: [404],
+    note: "Ruta provisional: el CU4 sigue pendiente de decidir en el contrato." },
+
+  { group: "Pruebas manuales", id: "CU5", title: "Datos apagado: la Puerta responde 503 con mensaje claro", needs: ["puerta", "decision"],
+    service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [503], manual: true,
+    note: "Antes de pulsar, apaga Datos (Ctrl+C en su terminal). Al terminar, vuelve a arrancarlo." },
+  { group: "Pruebas manuales", id: "RETO", title: "Límite: 6 peticiones seguidas, la última debe dar 429", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos", key: true, expect: [429], manual: true, repeat: 6,
+    note: "Gasta el límite de 5 por minuto de tu clave: espera un minuto antes de seguir probando." },
+];
+
+// ---- Helpers ---------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+let lastStatus = {};
+
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pretty = (value) => escapeHtml(typeof value === "string" ? value : JSON.stringify(value, null, 2));
+
+const STATUS_TEXT = {
+  200: "OK", 201: "Creado", 204: "Sin contenido", 400: "Datos mal enviados", 401: "Sin clave o clave incorrecta",
+  402: "Pago no aprobado", 404: "No existe", 405: "Método no permitido", 409: "Conflicto", 422: "Validación fallida",
+  429: "Demasiadas peticiones", 500: "Error interno del servidor", 503: "Servicio no disponible",
+};
+const codeLabel = (code) => code == null ? "sin respuesta" : `${code} ${STATUS_TEXT[code] || ""}`.trim();
+
+const START_HINT = {
+  datos: "cd datos && python manage.py runserver 8001",
+  decision: "cd decision && uvicorn main:app --port 8002 --reload",
+  puerta: "cd puerta && flask --app app run --port 8000",
+};
+
+try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
+$("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
+
+async function probe(order) {
+  try {
+    const response = await fetch("/api/probar", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order),
+    });
+    return await response.json();
+  } catch {
+    return { codigo: null, error: "El panel (front/servidor.py) no responde: ¿está arrancado?" };
+  }
+}
+
+// ---- Service status --------------------------------------------------------
+async function checkServices() {
+  $("refresh").disabled = true;
+  try {
+    const response = await fetch("/api/estado");
+    lastStatus = await response.json();
+  } catch {
+    $("banner").className = "banner bad";
+    $("banner").innerHTML = "❌ El panel no responde. Arráncalo con <code>python front/servidor.py</code>.";
+    $("refresh").disabled = false;
+    return;
+  }
+
+  const down = Object.entries(lastStatus).filter(([, s]) => s.codigo == null);
+  $("services").innerHTML = Object.entries(lastStatus).map(([key, s]) => {
+    const up = s.codigo != null;
+    const answer = up
+      ? `<span class="badge ok">EN MARCHA</span>`
+      : `<span class="badge bad">NO RESPONDE</span>`;
+    const detail = up
+      ? `Comprobación <code>GET ${escapeHtml(new URL(s.url).pathname)}</code> → <b>${codeLabel(s.codigo)}</b> en ${s.ms} ms`
+      : `${escapeHtml(s.error)}<br>Arráncalo con: <code>${START_HINT[key]}</code>`;
+    return `<div class="card ${up ? "up" : "down"}"><h3>${s.nombre} :${s.puerto} ${answer}</h3><div class="detail">${detail}</div></div>`;
+  }).join("");
+
+  if (down.length === 0) {
+    $("banner").className = "banner ok";
+    $("banner").textContent = "✅ Los tres servicios responden.";
+  } else {
+    $("banner").className = "banner bad";
+    $("banner").innerHTML = `❌ ${down.length === 1 ? "Hay un servicio caído" : `Hay ${down.length} servicios caídos`}:<ul>` +
+      down.map(([, s]) => `<li><b>${s.nombre}</b> (puerto ${s.puerto}) no responde: las pruebas que lo necesitan fallarán.</li>`).join("") + "</ul>";
+  }
+  $("lastCheck").textContent = `Última comprobación: ${new Date().toLocaleTimeString()}.`;
+  $("refresh").disabled = false;
+}
+
+// ---- Test steps ------------------------------------------------------------
+function renderSteps() {
+  let html = "", group = "";
+  for (const step of STEPS) {
+    if (step.group !== group) { group = step.group; html += `<div class="group">${group}</div>`; }
+    const port = { puerta: 8000, datos: 8001, decision: 8002 }[step.service];
+    const body = step.body ? ` · cuerpo <code>${escapeHtml(JSON.stringify(step.body))}</code>` : "";
+    const key = step.key ? " · con <code>X-API-Key</code>" : "";
+    html += `<div class="step" id="step-${step.id}">
+      <div class="step-head">
+        <div class="title"><b>${step.id}</b>${escapeHtml(step.title)}</div>
+        <span class="badge idle">espera ${step.expect.join(" o ")}</span>
+        <span class="badge idle" data-role="state">sin probar</span>
+        <button data-run="${step.id}">Probar</button>
+      </div>
+      <div class="req"><code>${step.method} :${port}${escapeHtml(step.path)}</code>${key}${body}</div>
+      ${step.note ? `<div class="note">⚠️ ${escapeHtml(step.note)}</div>` : ""}
+      <div class="result" data-role="result"></div>
+    </div>`;
+  }
+  $("steps").innerHTML = html;
+}
+
+async function runStep(step) {
+  const box = $(`step-${step.id}`);
+  const state = box.querySelector('[data-role="state"]');
+  const result = box.querySelector('[data-role="result"]');
+  box.querySelector("button").disabled = true;
+  state.className = "badge idle"; state.textContent = "probando…";
+
+  const order = {
+    servicio: step.service, metodo: step.method, ruta: step.path, cuerpo: step.body ?? null,
+    cabeceras: step.key ? { "X-API-Key": $("apiKey").value } : {},
+  };
+  let answer, codes = [];
+  for (let i = 0; i < (step.repeat || 1); i++) {
+    answer = await probe(order);
+    codes.push(answer.codigo ?? "—");
+  }
+
+  const passed = step.expect.includes(answer.codigo);
+  state.className = `badge ${passed ? "ok" : "bad"}`;
+  state.textContent = passed ? `✓ ${codeLabel(answer.codigo)}` : `✗ ${codeLabel(answer.codigo)}`;
+
+  // Explain the failure in plain words, naming the service at fault
+  let why = "";
+  if (!passed) {
+    const downNeeded = step.needs.filter((s) => lastStatus[s] && lastStatus[s].codigo == null && !(step.manual && s === "datos"));
+    if (answer.codigo == null) {
+      why = `<b>${lastStatus[step.service]?.nombre || step.service}</b> no responde. ${escapeHtml(answer.error || "")}`;
+    } else if (downNeeded.length) {
+      why = `Esta prueba también necesita: ${downNeeded.map((s) => `<b>${lastStatus[s].nombre}</b>`).join(", ")}, que está caído.`;
+    } else if (answer.codigo >= 500) {
+      why = `Error del servidor en <b>${lastStatus[step.service]?.nombre || step.service}</b>: mira su terminal para ver el traceback.`;
+    } else {
+      why = `Se esperaba ${step.expect.join(" o ")} y llegó ${codeLabel(answer.codigo)}.`;
+    }
+  }
+  const detail = answer.cuerpo && answer.cuerpo.detail && typeof answer.cuerpo.detail === "string"
+    ? `<div>Mensaje: «${escapeHtml(answer.cuerpo.detail)}»</div>` : "";
+  const sequence = step.repeat ? `<div>Códigos recibidos: ${codes.join(" → ")}</div>` : "";
+  const bodyBlock = answer.cuerpo !== undefined
+    ? `<details><summary>Ver respuesta (${answer.ms} ms)</summary><pre>${pretty(answer.cuerpo)}</pre></details>` : "";
+  result.innerHTML = `${why ? `<div style="color:var(--bad)">${why}</div>` : ""}${detail}${sequence}${bodyBlock}`;
+  box.querySelector("button").disabled = false;
+  return passed;
+}
+
+$("steps").addEventListener("click", (event) => {
+  const id = event.target.dataset.run;
+  if (id) runStep(STEPS.find((s) => s.id === id));
+});
+
+$("runAll").addEventListener("click", async () => {
+  $("runAll").disabled = true;
+  await checkServices();
+  const automatic = STEPS.filter((s) => !s.manual);
+  let passed = 0;
+  for (const step of automatic) if (await runStep(step)) passed++;
+  $("summary").innerHTML = passed === automatic.length
+    ? `<span style="color:var(--ok)">✅ ${passed}/${automatic.length} pruebas superadas.</span>`
+    : `<span style="color:var(--bad)">❌ ${passed}/${automatic.length} pruebas superadas: revisa las que están en rojo.</span>`;
+  $("runAll").disabled = false;
+});
+
+// ---- Free request ----------------------------------------------------------
+$("freeSend").addEventListener("click", async () => {
+  const box = $("freeResult");
+  let body = null;
+  if ($("freeBody").value.trim()) {
+    try { body = JSON.parse($("freeBody").value); }
+    catch { box.style.display = "block"; box.innerHTML = `<span style="color:var(--bad)">El cuerpo no es JSON válido.</span>`; return; }
+  }
+  const answer = await probe({
+    servicio: $("freeService").value, metodo: $("freeMethod").value, ruta: $("freePath").value || "/",
+    cuerpo: body, cabeceras: { "X-API-Key": $("apiKey").value },
+  });
+  const ok = answer.codigo != null && answer.codigo < 400;
+  box.style.display = "block";
+  box.innerHTML = `<span class="badge ${ok ? "ok" : "bad"}">${codeLabel(answer.codigo)}</span>
+    ${answer.error ? `<div style="color:var(--bad);margin-top:6px">${escapeHtml(answer.error)}</div>` : ""}
+    ${answer.cuerpo !== undefined ? `<pre>${pretty(answer.cuerpo)}</pre>` : ""}`;
+});
+
+$("refresh").addEventListener("click", checkServices);
+renderSteps();
+checkServices();
+setInterval(checkServices, 5000);
+</script>
+</body>
+</html>
