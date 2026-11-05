@@ -166,6 +166,12 @@ Se usó IA como apoyo para implementar la autenticación con `X-API-Key`, el lí
 contrastó con las rutas y los campos del contrato y de los servicios; se concretaron las respuestas para financiación denegada y recomendación vacía.
 También se añadieron pruebas unitarias con las llamadas HTTP simuladas y un script para comprobar el límite. El código y las pruebas se revisaron antes de incorporarlos.
 
+## Antonio · Datos: framework y uso de IA
+
+Se eligió Django para el servicio Datos porque obliga a organizar el código en archivos (`views.py` y `urls.py`) y porque quería aprender un framework que no había usado. Es el servicio más sencillo de los tres, así que había tiempo para aprenderlo.
+
+Se usó IA como apoyo para instalar Django, organizar el proyecto, escribir las vistas de las rutas (GET, POST, PUT, DELETE y PATCH) y subir el trabajo a GitHub. La propuesta se contrastó con el contrato: se cambió el formato de error a `detail`, se añadió la validación de `talla` y `temporada`, y se hizo el reto (10 equipaciones y el filtro `max_precio`). Cada ruta se probó con Thunder Client, comprobando los códigos 200, 201, 204, 400, 404 y 409, y se guardaron capturas. También se corrigieron errores que fueron saliendo, como la sangría del código y una petición PUT sin el `id` en la ruta. El código se revisó antes de incorporarlo.
+
 ## Pendiente para el README final
 
 - [ ] Por qué cada uno eligió su framework.
