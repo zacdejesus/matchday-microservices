@@ -113,11 +113,12 @@ cd decision
 pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload
 ```
-
-`# Datos (Django) – Antonio: completar
+```bash
+# Datos (Django), puerto 8001; en otra terminal, desde la raíz del repositorio
 cd datos
 pip install -r requirements.txt
-python manage.py runserver 8001`
+python manage.py runserver 8001
+```
 
 ```bash
 # Puerta (Flask), puerto 8000; en otra terminal, desde la raíz del repositorio
