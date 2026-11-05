@@ -77,7 +77,7 @@ Recibe lo que busca el cliente, pide a Datos las equipaciones de ese equipo y de
 **Entrada**
 
 ```json
-{ "equipo": "Betis", "presupuesto": 100, "talla": "M" }
+{ "equipo": "Betis", "presupuesto": 100, "talla": "M", "temporada": "2024/25" }
 ```
 
 | Campo | Tipo | Regla |
@@ -85,11 +85,12 @@ Recibe lo que busca el cliente, pide a Datos las equipaciones de ese equipo y de
 | `equipo` | texto | obligatorio, no vacío |
 | `presupuesto` | número | obligatorio, mayor que 0 |
 | `talla` | texto | una de `XS`, `S`, `M`, `L`, `XL`, `XXL` |
+| `temporada` | texto | opcional; formato `AAAA/AA`. Si se omite, se consideran todas las temporadas. |
 
 **Qué hace**
 
 1. Llama a Datos: `GET http://localhost:8001/equipaciones?equipo={equipo}`.
-2. Se queda con las que tienen esa `talla`, `precio <= presupuesto` y `stock > 0`.
+2. Se queda con las que tienen esa `talla`, `precio <= presupuesto` y `stock > 0`; si se envía `temporada`, también exige que coincida.
 3. Ordena: primero la temporada más reciente; a igual temporada, la más barata.
 4. Devuelve como máximo 3.
 
@@ -174,7 +175,7 @@ Devuelve `{ "estado": "ok" }`. Sirve para que Puerta compruebe si Decisión est�
 
 | Método | Ruta | Entrada | Salida | Códigos |
 |---|---|---|---|---|
-| POST | `/pedidos` | cabecera `X-API-Key` + `{equipo, talla, presupuesto, ingresos_mensuales, plazos}` (a confirmar) | el pedido creado | 201 · 400 · 401 · 409 · 429 · 503 |
+| POST | `/pedidos` | cabecera `X-API-Key` + `{equipo, talla, presupuesto, ingresos_mensuales, plazos, temporada?}` | el pedido creado | 201 · 400 · 401 · 409 · 429 · 503 |
 | GET | `/pedidos` | cabecera `X-API-Key` | lista de pedidos | 200 · 401 |
 
 - Sin clave o con clave incorrecta: 401. Más de 5 peticiones por minuto con la misma clave: 429.

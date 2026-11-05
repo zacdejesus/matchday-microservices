@@ -125,6 +125,7 @@
     </div>
     <div class="grid">
       <label>Equipo<select id="team"><option>Cargando…</option></select></label>
+      <label>Temporada<select id="season"><option value="">Todas</option></select></label>
       <label>Talla<select id="size">
         <option>XS</option><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>XXL</option>
       </select></label>
@@ -366,21 +367,47 @@ async function loadCatalog() {
   catalog = answer.cuerpo;
   const teams = [...new Set(catalog.map((i) => i.equipo))].sort((a, b) => a.localeCompare(b, "es"));
   $("team").innerHTML = teams.map((t) => `<option>${esc(t)}</option>`).join("");
+  updateSeasonOptions();
   $("catalogHint").innerHTML = "";
   showSizesForTeam();
 }
 
+function updateSeasonOptions() {
+  const selectedSeason = $("season").value;
+  const team = $("team").value;
+  const seasons = [...new Set(catalog
+    .filter((item) => item.equipo === team)
+    .map((item) => item.temporada))]
+    .sort((a, b) => b.localeCompare(a, "es"));
+  $("season").innerHTML = `<option value="">Todas</option>` +
+    seasons.map((season) => `<option value="${esc(season)}">${esc(season)}</option>`).join("");
+  if (seasons.includes(selectedSeason)) $("season").value = selectedSeason;
+}
+
 function showSizesForTeam() {
   const team = $("team").value;
-  const items = catalog.filter((i) => i.equipo === team);
+  const season = $("season").value;
+  const items = catalog.filter((item) =>
+    item.equipo === team && (!season || item.temporada === season),
+  );
   if (!items.length) { $("catalogHint").textContent = ""; return; }
   const sizes = items.map((i) => `${i.talla}${i.stock > 0 ? "" : " (agotada)"}`);
-  $("catalogHint").textContent = `En el catálogo de ${team}: talla ${[...new Set(sizes)].join(", ")}.`;
+  const seasonLabel = season ? ` de la temporada ${season}` : "";
+  $("catalogHint").textContent = `En el catálogo de ${team}${seasonLabel}: talla ${[...new Set(sizes)].join(", ")}.`;
 }
-$("team").addEventListener("change", showSizesForTeam);
+$("team").addEventListener("change", () => {
+  updateSeasonOptions();
+  showSizesForTeam();
+  resetAfterSearch();
+});
+$("season").addEventListener("change", () => {
+  showSizesForTeam();
+  resetAfterSearch();
+});
 
 $("search").addEventListener("click", async () => {
   const body = { equipo: $("team").value, talla: $("size").value, presupuesto: Number($("budget").value) };
+  if ($("season").value) body.temporada = $("season").value;
   $("search").disabled = true;
   $("searchResult").innerHTML = `<div class="reason">Preguntando a Decisión…</div>`;
   const answer = await call("decision", "POST", "/recomendar", body);
@@ -468,6 +495,7 @@ $("buy").addEventListener("click", async () => {
   const body = {
     equipo: state.top.equipo, talla: state.top.talla, presupuesto: Number($("budget").value),
     ingresos_mensuales: Number($("income").value), plazos: Number($("installments").value),
+    temporada: state.top.temporada,
   };
   $("buy").disabled = true;
   $("orderResult").innerHTML = `<div class="reason">Enviando el pedido a Puerta…</div>`;

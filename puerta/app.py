@@ -4,6 +4,7 @@ from collections import deque
 from math import isfinite
 import hmac
 import os
+import re
 from threading import Lock
 from time import monotonic
 from uuid import uuid4
@@ -59,6 +60,11 @@ def _validate_order(payload):
         return "El equipo debe ser un texto no vacío"
     if not isinstance(payload["talla"], str) or payload["talla"] not in TALLAS:
         return "La talla no es válida"
+    if "temporada" in payload and (
+        not isinstance(payload["temporada"], str)
+        or not re.fullmatch(r"\d{4}/\d{2}", payload["temporada"])
+    ):
+        return "La temporada debe tener formato AAAA/AA, por ejemplo 2025/26"
     if not _is_positive_number(payload["presupuesto"]):
         return "El presupuesto debe ser un número mayor que 0"
     if not _is_positive_number(payload["ingresos_mensuales"]):
@@ -154,14 +160,17 @@ def create_order():
         return error(validation_error, 400)
 
     team = payload["equipo"].strip()
+    recommendation_request = {
+        "equipo": team,
+        "talla": payload["talla"],
+        "presupuesto": payload["presupuesto"],
+    }
+    if "temporada" in payload:
+        recommendation_request["temporada"] = payload["temporada"]
     try:
         recommendation_response = requests.post(
             f"{DECISION_URL}/recomendar",
-            json={
-                "equipo": team,
-                "talla": payload["talla"],
-                "presupuesto": payload["presupuesto"],
-            },
+            json=recommendation_request,
             timeout=TIMEOUT_SECONDS,
         )
     except requests.RequestException:

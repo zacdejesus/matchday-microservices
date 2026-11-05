@@ -9,7 +9,7 @@ To accept requests from other computers on the network and use a remote Datos:
 """
 
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -100,6 +100,7 @@ class RecommendationRequest(BaseModel):
     equipo: str = Field(..., min_length=1)
     presupuesto: float = Field(..., gt=0)
     talla: Size
+    temporada: Optional[str] = Field(default=None, pattern=r"^\d{4}/\d{2}$")
 
 
 def season_start(item: dict) -> int:
@@ -128,6 +129,7 @@ def recommend(request: RecommendationRequest):
     matches = [
         item for item in items
         if item.get("talla") == request.talla
+        and (request.temporada is None or item.get("temporada") == request.temporada)
         and item.get("precio", 0) <= request.presupuesto
         and item.get("stock", 0) > 0
     ]
@@ -138,11 +140,16 @@ def recommend(request: RecommendationRequest):
     budget = euros(request.presupuesto)
     if best:
         reason = (f"{len(best)} equipacion(es) del {team} en talla {request.talla} "
-                  f"por {budget} o menos, de la más nueva a la más antigua")
+                  f"por {budget} o menos"
+                  + (f" de la temporada {request.temporada}" if request.temporada else "")
+                  + ", de la más nueva a la más antigua")
     elif not items:
         reason = f"No hay equipaciones del {team} en el catálogo"
+    elif request.temporada and not any(item.get("temporada") == request.temporada for item in items):
+        reason = f"No hay equipaciones del {team} para la temporada {request.temporada}"
     else:
-        reason = (f"No hay equipaciones del {team} en talla {request.talla} con stock "
-                  f"por {budget} o menos")
+        season_text = f" de la temporada {request.temporada}" if request.temporada else ""
+        reason = (f"No hay equipaciones del {team} en talla {request.talla}{season_text} "
+                  f"con stock por {budget} o menos")
 
     return {"recomendaciones": best, "motivo": reason}
