@@ -146,7 +146,7 @@ clave que hayas configurado en la variable `API_KEY`).
 Un `.zip` con esta estructura, que sube cada integrante a Teams:
 
 ```
-equipo_4/
+matchday-microservices/
 ├── datos/
 ├── decision/
 ├── puerta/

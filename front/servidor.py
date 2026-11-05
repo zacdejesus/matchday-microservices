@@ -3,7 +3,7 @@
 Serves the shop (/) and the test panel (/panel), and forwards requests
 to the services from Python, so the browser never hits CORS problems.
 
-Run from the equipo_4 folder (standard library only, nothing to install):
+Run from the matchday-microservices folder (standard library only, nothing to install):
     python front/servidor.py
 Then open http://localhost:8080 (shop) or http://localhost:8080/panel
 
