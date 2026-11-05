@@ -179,6 +179,8 @@
   <footer>
     Arranca los servicios y este front desde la carpeta <code>equipo_4</code>: <code>python front/servidor.py</code>.
     Puerta tiene un límite de 5 peticiones por minuto por clave.
+    <span class="muted" id="doorRequestTimer" role="timer" aria-live="off"
+          title="Última petición y recuento local de peticiones enviadas desde esta tienda y este panel; no incluye otros clientes."></span>
   </footer>
 </main>
 
@@ -194,15 +196,80 @@ const STATUS_TEXT = {
   409: "Conflicto", 422: "Validación fallida", 429: "Demasiadas peticiones", 500: "Error interno", 503: "Servicio no disponible",
 };
 const state = { top: null, quote: null, quoteTimer: null, serviceStatus: {} };
+const DOOR_REQUEST_STORAGE_KEY = "doorRequestTimestamps";
+const LEGACY_DOOR_REQUEST_STORAGE_KEY = "doorLastRequestAt";
+const DOOR_REQUEST_WINDOW_MS = 60_000;
+let doorRequestTimes = [];
+let lastDoorRequestAt = null;
 
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const euros = (n) => Number(n).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+
+function updateDoorRequestTimer() {
+  const timer = $("doorRequestTimer");
+  const now = Date.now();
+  try {
+    const stored = localStorage.getItem(DOOR_REQUEST_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      doorRequestTimes = Array.isArray(parsed)
+        ? parsed.filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0)
+        : [];
+    } else {
+      doorRequestTimes = [];
+    }
+    const storedLastRequest = Number(localStorage.getItem(LEGACY_DOOR_REQUEST_STORAGE_KEY));
+    lastDoorRequestAt = Number.isFinite(storedLastRequest) && storedLastRequest > 0 && storedLastRequest <= now
+      ? storedLastRequest
+      : null;
+  } catch {
+    doorRequestTimes = doorRequestTimes.filter((timestamp) => Number.isFinite(timestamp));
+  }
+
+  const newestRecordedRequest = Math.max(...doorRequestTimes.filter((timestamp) => timestamp <= now));
+  if (Number.isFinite(newestRecordedRequest) &&
+      (lastDoorRequestAt === null || newestRecordedRequest > lastDoorRequestAt)) {
+    lastDoorRequestAt = newestRecordedRequest;
+  }
+  doorRequestTimes = doorRequestTimes.filter(
+    (timestamp) => timestamp <= now && now - timestamp < DOOR_REQUEST_WINDOW_MS,
+  );
+  const count = doorRequestTimes.length;
+  const elapsedSeconds = Number.isFinite(lastDoorRequestAt)
+    ? Math.floor((now - lastDoorRequestAt) / 1000)
+    : null;
+  const elapsed = elapsedSeconds === null
+    ? "sin peticiones"
+    : `hace ${String(Math.floor(elapsedSeconds / 60)).padStart(2, "0")}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
+  const requestLabel = count === 1 ? "petición" : "peticiones";
+  timer.textContent = `Puerta: última ${elapsed} · ${count} ${requestLabel} en los últimos 60 s`;
+}
+
+function recordDoorRequest() {
+  const now = Date.now();
+  lastDoorRequestAt = now;
+  doorRequestTimes = [...doorRequestTimes, now].filter(
+    (timestamp) => timestamp <= now && now - timestamp < DOOR_REQUEST_WINDOW_MS,
+  );
+  try { localStorage.setItem(DOOR_REQUEST_STORAGE_KEY, JSON.stringify(doorRequestTimes)); } catch {}
+  try { localStorage.setItem(LEGACY_DOOR_REQUEST_STORAGE_KEY, String(now)); } catch {}
+  updateDoorRequestTimer();
+}
+
+window.addEventListener("storage", (event) => {
+  if ([DOOR_REQUEST_STORAGE_KEY, LEGACY_DOOR_REQUEST_STORAGE_KEY].includes(event.key)) {
+    updateDoorRequestTimer();
+  }
+});
+updateDoorRequestTimer();
+setInterval(updateDoorRequestTimer, 1000);
 
 try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
 $("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
 
 // All calls go through front/servidor.py, which forwards them to the service
 async function call(service, method, path, body = null, withKey = false) {
+  if (service === "puerta") recordDoorRequest();
   try {
     const response = await fetch("/api/probar", {
       method: "POST", headers: { "Content-Type": "application/json" },
