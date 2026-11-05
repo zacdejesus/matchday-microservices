@@ -70,6 +70,22 @@ class PuertaTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_invalid_season_format_returns_400(self):
+        response = self.client.post(
+            "/pedidos",
+            headers=self.headers,
+            json={
+                "equipo": "Betis",
+                "talla": "M",
+                "temporada": "2025",
+                "presupuesto": 100,
+                "ingresos_mensuales": 1200,
+                "plazos": 6,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("formato AAAA/AA", response.json["detail"])
+
     @patch.object(puerta.requests, "patch")
     @patch.object(puerta.requests, "post")
     def test_valid_order_calls_services_and_is_listed(self, post, patch_stock):
@@ -110,6 +126,7 @@ class PuertaTests(unittest.TestCase):
             json={
                 "equipo": " Betis ",
                 "talla": "M",
+                "temporada": "2024/25",
                 "presupuesto": 100,
                 "ingresos_mensuales": 1200,
                 "plazos": 6,
@@ -120,6 +137,7 @@ class PuertaTests(unittest.TestCase):
         self.assertEqual(response.json["id"], 1)
         self.assertEqual(response.json["equipacion"]["stock"], 3)
         self.assertEqual(post.call_count, 2)
+        self.assertEqual(post.call_args_list[0].kwargs["json"]["temporada"], "2024/25")
         self.assertEqual(post.call_args_list[0].kwargs["timeout"], 3)
         self.assertEqual(post.call_args_list[1].kwargs["timeout"], 3)
         patch_stock.assert_called_once_with(
