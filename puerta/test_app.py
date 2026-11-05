@@ -23,6 +23,12 @@ class PuertaTests(unittest.TestCase):
         response = self.client.get("/pedidos")
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json, {"detail": "API key no válida o ausente"})
+        self.assertEqual(response.headers["X-Service-Instance"], puerta.SERVICE_INSTANCE_ID)
+
+    def test_service_instance_header_is_stable(self):
+        first = self.client.get("/pedidos").headers["X-Service-Instance"]
+        second = self.client.get("/pedidos", headers=self.headers).headers["X-Service-Instance"]
+        self.assertEqual(first, second)
 
     def test_wrong_api_key_is_rejected(self):
         response = self.client.get("/pedidos", headers={"X-API-Key": "incorrecta"})

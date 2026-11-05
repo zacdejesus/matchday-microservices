@@ -198,6 +198,7 @@ const STATUS_TEXT = {
 const state = { top: null, quote: null, quoteTimer: null, serviceStatus: {} };
 const DOOR_REQUEST_STORAGE_KEY = "doorRequestTimestamps";
 const LEGACY_DOOR_REQUEST_STORAGE_KEY = "doorLastRequestAt";
+const DOOR_INSTANCE_STORAGE_KEY = "doorServiceInstanceId";
 const DOOR_REQUEST_WINDOW_MS = 60_000;
 let doorRequestTimes = [];
 let lastDoorRequestAt = null;
@@ -256,8 +257,28 @@ function recordDoorRequest() {
   updateDoorRequestTimer();
 }
 
+function observeDoorServiceInstance(instanceId, requestAt = null) {
+  if (typeof instanceId !== "string" || !instanceId) return;
+  let previousInstanceId = null;
+  try { previousInstanceId = localStorage.getItem(DOOR_INSTANCE_STORAGE_KEY); } catch {}
+  if (previousInstanceId === instanceId) return;
+
+  try { localStorage.setItem(DOOR_INSTANCE_STORAGE_KEY, instanceId); } catch {}
+  if (previousInstanceId !== null) {
+    doorRequestTimes = requestAt === null ? [] : [requestAt];
+    lastDoorRequestAt = requestAt;
+    try { localStorage.setItem(DOOR_REQUEST_STORAGE_KEY, JSON.stringify(doorRequestTimes)); } catch {}
+    if (requestAt === null) {
+      try { localStorage.removeItem(LEGACY_DOOR_REQUEST_STORAGE_KEY); } catch {}
+    } else {
+      try { localStorage.setItem(LEGACY_DOOR_REQUEST_STORAGE_KEY, String(requestAt)); } catch {}
+    }
+    updateDoorRequestTimer();
+  }
+}
+
 window.addEventListener("storage", (event) => {
-  if ([DOOR_REQUEST_STORAGE_KEY, LEGACY_DOOR_REQUEST_STORAGE_KEY].includes(event.key)) {
+  if ([DOOR_REQUEST_STORAGE_KEY, LEGACY_DOOR_REQUEST_STORAGE_KEY, DOOR_INSTANCE_STORAGE_KEY].includes(event.key)) {
     updateDoorRequestTimer();
   }
 });
@@ -269,14 +290,17 @@ $("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKe
 
 // All calls go through front/servidor.py, which forwards them to the service
 async function call(service, method, path, body = null, withKey = false) {
-  if (service === "puerta") recordDoorRequest();
+  const requestAt = service === "puerta" ? Date.now() : null;
+  if (requestAt !== null) recordDoorRequest();
   try {
     const response = await fetch("/api/probar", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ servicio: service, metodo: method, ruta: path, cuerpo: body,
                              cabeceras: withKey ? { "X-API-Key": $("apiKey").value } : {} }),
     });
-    return await response.json();
+    const answer = await response.json();
+    if (requestAt !== null) observeDoorServiceInstance(answer.instancia, requestAt);
+    return answer;
   } catch {
     return { codigo: null, error: "El front (front/servidor.py) no responde", frontDown: true };
   }
@@ -320,6 +344,7 @@ async function checkStatus() {
     $("statusAlert").innerHTML = `<div class="alert">El front no responde. Arráncalo con <code>python front/servidor.py</code>.</div>`;
     return;
   }
+  observeDoorServiceInstance(status.puerta?.instancia);
   state.serviceStatus = status;
   $("status").innerHTML = ["puerta", "decision", "datos"].map((k) =>
     `<span class="dot ${status[k].codigo == null ? "down" : "up"}" title="${esc(status[k].error || `responde ${status[k].codigo}`)}">${status[k].nombre} :${status[k].puerto}</span>`).join("");

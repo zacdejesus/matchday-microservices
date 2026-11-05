@@ -49,11 +49,14 @@ def call_service(service, method, path, body=None, headers=None):
     request = urllib.request.Request(url, data=data, method=method, headers=request_headers)
 
     start = time.perf_counter()
+    instance_id = None
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             status, raw = response.status, response.read()
+            instance_id = response.headers.get("X-Service-Instance")
     except urllib.error.HTTPError as error:  # 4xx / 5xx: the service answered
         status, raw = error.code, error.read()
+        instance_id = error.headers.get("X-Service-Instance")
     except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         reason = getattr(error, "reason", error)
         return {
@@ -73,6 +76,7 @@ def call_service(service, method, path, body=None, headers=None):
         "codigo": status,
         "ms": round((time.perf_counter() - start) * 1000),
         "cuerpo": payload,
+        "instancia": instance_id,
     }
 
 

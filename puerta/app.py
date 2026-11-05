@@ -6,12 +6,14 @@ import hmac
 import os
 from threading import Lock
 from time import monotonic
+from uuid import uuid4
 
 import requests
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 app.config["API_KEY"] = os.environ.get("API_KEY")
+SERVICE_INSTANCE_ID = uuid4().hex
 
 DECISION_URL = os.environ.get("DECISION_URL", "http://localhost:8002")
 DATA_URL = os.environ.get("DATA_URL", "http://localhost:8001")
@@ -24,6 +26,12 @@ _orders = []
 _orders_lock = Lock()
 _request_times = {}
 _rate_limit_lock = Lock()
+
+
+@app.after_request
+def identify_service_instance(response):
+    response.headers["X-Service-Instance"] = SERVICE_INSTANCE_ID
+    return response
 
 
 def error(detail, status):
