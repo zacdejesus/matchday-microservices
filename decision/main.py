@@ -3,8 +3,12 @@
 Run from this folder:
     uvicorn main:app --port 8002 --reload
 Docs: http://localhost:8002/docs
+
+To accept requests from other computers on the network and use a remote Datos:
+    DATA_URL=http://<ip-of-datos>:8001 uvicorn main:app --host 0.0.0.0 --port 8002
 """
 
+import os
 from typing import Literal
 
 import requests
@@ -13,7 +17,7 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="Decisión – Equipo 4")
 
-DATA_URL = "http://localhost:8001"
+DATA_URL = os.environ.get("DATA_URL", "http://localhost:8001")  # set it if Datos runs on another computer
 TIMEOUT_SECONDS = 3
 MAX_INSTALLMENT_RATIO = 0.30  # installment can be at most 30 % of monthly income
 MAX_RECOMMENDATIONS = 3

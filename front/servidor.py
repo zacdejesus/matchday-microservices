@@ -6,9 +6,14 @@ to the services from Python, so the browser never hits CORS problems.
 Run from the equipo_4 folder (standard library only, nothing to install):
     python front/servidor.py
 Then open http://localhost:8080 (shop) or http://localhost:8080/panel
+
+If a service runs on another computer, pass its address, e.g.:
+    DATA_URL=http://10.0.4.50:8001 python front/servidor.py
+(variables: PUERTA_URL, DATA_URL, DECISION_URL)
 """
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -22,17 +27,20 @@ PAGES = {"/": "tienda.html", "/tienda": "tienda.html", "/panel": "panel.html"}
 
 # Only these targets can be reached, so the panel is not an open proxy
 SERVICES = {
-    "datos": {"name": "Datos", "port": 8001, "health": "/equipaciones"},
-    "decision": {"name": "Decisión", "port": 8002, "health": "/salud"},
+    "datos": {"name": "Datos", "port": 8001, "health": "/equipaciones",
+              "url": os.environ.get("DATA_URL", "http://localhost:8001")},
+    "decision": {"name": "Decisión", "port": 8002, "health": "/salud",
+                 "url": os.environ.get("DECISION_URL", "http://localhost:8002")},
     # Puerta has no /salud: a 401 without key also proves it is alive
-    "puerta": {"name": "Puerta", "port": 8000, "health": "/pedidos"},
+    "puerta": {"name": "Puerta", "port": 8000, "health": "/pedidos",
+               "url": os.environ.get("PUERTA_URL", "http://localhost:8000")},
 }
 ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 
 
 def call_service(service, method, path, body=None, headers=None):
     """Make one request and describe the result. Never raises."""
-    url = f"http://localhost:{SERVICES[service]['port']}{path}"
+    url = SERVICES[service]["url"].rstrip("/") + path
     data = None
     request_headers = dict(headers or {})
     if body is not None:
@@ -116,5 +124,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    for service in SERVICES.values():
+        print(f"  {service['name']:9} → {service['url']}")
     print(f"Tienda en http://localhost:{PORT}  ·  panel de pruebas en http://localhost:{PORT}/panel  (Ctrl+C para salir)")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
