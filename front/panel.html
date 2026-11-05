@@ -67,7 +67,9 @@
   .step .req { font-size: 13px; color: var(--muted); margin-top: 4px; word-break: break-all; }
   .step .note { font-size: 13px; color: var(--warn); margin-top: 4px; }
   .step .result { margin-top: 8px; font-size: 13px; }
+  .step details { margin-top: 8px; }
   .step details summary { cursor: pointer; color: var(--muted); }
+  .step details pre { white-space: pre-wrap; word-break: break-word; }
   .summary-line { margin-top: 12px; font-weight: 500; }
 
   .free { display: grid; gap: 8px; grid-template-columns: 140px 110px 1fr auto; align-items: center; }
@@ -83,7 +85,8 @@
     </div>
     <div class="toolbar">
       <label>X-API-Key <input id="apiKey" size="14"></label>
-      <button id="refresh">Comprobar ahora</button>
+      <button id="checkApiKey">Comprobar API key</button>
+      <button id="refresh">Comprobar servicios</button>
     </div>
   </header>
 
@@ -93,7 +96,7 @@
 
   <h2>Cómo arrancar todo</h2>
   <ol class="start">
-    <li>Abre una terminal por servicio, todas dentro de la carpeta <code>equipo_4</code>.</li>
+    <li>Abre una terminal por servicio, todas dentro de la carpeta <code>matchday-microservices</code>.</li>
     <li><b>Datos</b> (Django): <pre>cd datos
 pip install django
 python manage.py runserver 8001</pre></li>
@@ -162,19 +165,23 @@ const STEPS = [
     service: "puerta", method: "GET", path: "/pedidos", key: true, expect: [200] },
   { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1b", title: "Listar pedidos sin clave", needs: ["puerta"],
     service: "puerta", method: "GET", path: "/pedidos", expect: [401] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1c", title: "Listar pedidos con clave incorrecta", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos", key: true, wrongKey: true, expect: [401] },
   { group: "Casos de uso por la Puerta (Evaristo)", id: "CU2", title: "Crear pedido sin talla", needs: ["puerta"],
-    service: "puerta", method: "POST", path: "/pedidos", key: true, body: ORDER_WITHOUT_SIZE, expect: [400, 422] },
+    service: "puerta", method: "POST", path: "/pedidos", key: true, body: ORDER_WITHOUT_SIZE, expect: [400] },
   { group: "Casos de uso por la Puerta (Evaristo)", id: "CU3", title: "Pedido completo Puerta → Decisión → Datos", needs: ["puerta", "decision", "datos"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [201] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU4", title: "Recurso que no existe: el 404 llega al usuario", needs: ["puerta"],
-    service: "puerta", method: "GET", path: "/pedidos/999", key: true, expect: [404] },
+  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU4", title: "Equipo sin recomendaciones disponibles", needs: ["puerta", "decision", "datos"],
+    service: "puerta", method: "POST", path: "/pedidos", key: true,
+    body: { ...VALID_ORDER, equipo: "EquipoQueNoExiste" }, expect: [409] },
 
   { group: "Pruebas manuales", id: "CU5", title: "Datos apagado: la Puerta responde 503 con mensaje claro", needs: ["puerta", "decision"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [503], manual: true,
     note: "Antes de pulsar, apaga Datos (Ctrl+C en su terminal). Al terminar, vuelve a arrancarlo." },
-  { group: "Pruebas manuales", id: "RETO", title: "Límite: 6 peticiones seguidas, la última debe dar 429", needs: ["puerta"],
-    service: "puerta", method: "GET", path: "/pedidos", key: true, expect: [429], manual: true, repeat: 6,
-    note: "Gasta el límite de 5 por minuto de tu clave: espera un minuto antes de seguir probando." },
+  { group: "Pruebas manuales", id: "RETO", title: "Límite: 10 peticiones seguidas (5×200 y 5×429)", needs: ["puerta"],
+    service: "puerta", method: "GET", path: "/pedidos", key: true,
+    expect: [429], expectSequence: Array(5).fill(200).concat(Array(5).fill(429)), manual: true, repeat: 10,
+    note: "Haz esta prueba por separado. Espera 60 segundos sin usar esta clave antes de pulsar; gasta el límite durante un minuto." },
 ];
 
 // ---- Helpers ---------------------------------------------------------------
@@ -199,6 +206,39 @@ const START_HINT = {
 
 try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
 $("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
+
+async function checkApiKey() {
+  const key = $("apiKey").value.trim();
+  if (!key) {
+    alert("Escribe una API key para comprobarla.");
+    $("apiKey").focus();
+    return;
+  }
+
+  const button = $("checkApiKey");
+  button.disabled = true;
+  button.textContent = "Comprobando…";
+  const answer = await probe({
+    servicio: "puerta",
+    metodo: "GET",
+    ruta: "/pedidos",
+    cabeceras: { "X-API-Key": key },
+  });
+  button.disabled = false;
+  button.textContent = "Comprobar API key";
+
+  if (answer.codigo === 200) {
+    alert("✅ La API key es correcta.");
+  } else if (answer.codigo === 401) {
+    alert("❌ La API key es incorrecta.");
+  } else if (answer.codigo === 429) {
+    alert("✅ La API key es correcta, pero se ha alcanzado el límite de peticiones. Espera antes de volver a probar.");
+  } else if (answer.codigo == null) {
+    alert(`No se pudo comprobar la API key: ${answer.error || "el panel no responde."}`);
+  } else {
+    alert(`No se pudo comprobar la API key. Puerta respondió ${codeLabel(answer.codigo)}.`);
+  }
+}
 
 async function probe(order) {
   try {
@@ -255,20 +295,57 @@ function renderSteps() {
     if (step.group !== group) { group = step.group; html += `<div class="group">${group}</div>`; }
     const port = { puerta: 8000, datos: 8001, decision: 8002 }[step.service];
     const body = step.body ? ` · cuerpo <code>${escapeHtml(JSON.stringify(step.body))}</code>` : "";
-    const key = step.key ? " · con <code>X-API-Key</code>" : "";
+    const key = step.key
+      ? ` · con <code>X-API-Key${step.wrongKey ? " (incorrecta)" : ""}</code>`
+      : "";
+    const expected = step.expectSequence
+      ? "5×200 y después 5×429"
+      : step.expect.join(" o ");
     html += `<div class="step" id="step-${step.id}">
       <div class="step-head">
         <div class="title"><b>${step.id}</b>${escapeHtml(step.title)}</div>
-        <span class="badge idle">espera ${step.expect.join(" o ")}</span>
+        <span class="badge idle">espera ${expected}</span>
         <span class="badge idle" data-role="state">sin probar</span>
         <button data-run="${step.id}">Probar</button>
       </div>
       <div class="req"><code>${step.method} :${port}${escapeHtml(step.path)}</code>${key}${body}</div>
       ${step.note ? `<div class="note">⚠️ ${escapeHtml(step.note)}</div>` : ""}
+      <details>
+        <summary>Ver petición que se envía</summary>
+        <pre data-role="request"></pre>
+      </details>
       <div class="result" data-role="result"></div>
     </div>`;
   }
   $("steps").innerHTML = html;
+  updateRequestPreviews();
+}
+
+function requestPreview(step) {
+  const port = { puerta: 8000, datos: 8001, decision: 8002 }[step.service];
+  const headers = {};
+  if (step.key) {
+    headers["X-API-Key"] = step.wrongKey
+      ? `${$("apiKey").value}-incorrecta`
+      : $("apiKey").value;
+  }
+  if (step.body != null) headers["Content-Type"] = "application/json";
+
+  const request = {
+    metodo: step.method,
+    url: `http://localhost:${port}${step.path}`,
+    cabeceras: headers,
+  };
+  if (step.body != null) request.cuerpo_json = step.body;
+  if (step.repeat) request.repeticiones = step.repeat;
+  return JSON.stringify(request, null, 2);
+}
+
+function updateRequestPreviews() {
+  for (const step of STEPS) {
+    const preview = $(`step-${step.id}`)?.querySelector('[data-role="request"]');
+    if (preview) preview.textContent = requestPreview(step);
+  }
 }
 
 async function runStep(step) {
@@ -278,9 +355,12 @@ async function runStep(step) {
   box.querySelector("button").disabled = true;
   state.className = "badge idle"; state.textContent = "probando…";
 
+  const headers = step.key
+    ? { "X-API-Key": step.wrongKey ? `${$("apiKey").value}-incorrecta` : $("apiKey").value }
+    : {};
   const order = {
     servicio: step.service, metodo: step.method, ruta: step.path, cuerpo: step.body ?? null,
-    cabeceras: step.key ? { "X-API-Key": $("apiKey").value } : {},
+    cabeceras: headers,
   };
   let answer, codes = [];
   for (let i = 0; i < (step.repeat || 1); i++) {
@@ -288,9 +368,13 @@ async function runStep(step) {
     codes.push(answer.codigo ?? "—");
   }
 
-  const passed = step.expect.includes(answer.codigo);
+  const passed = step.expectSequence
+    ? codes.every((code, index) => code === step.expectSequence[index])
+    : step.expect.includes(answer.codigo);
   state.className = `badge ${passed ? "ok" : "bad"}`;
-  state.textContent = passed ? `✓ ${codeLabel(answer.codigo)}` : `✗ ${codeLabel(answer.codigo)}`;
+  state.textContent = step.expectSequence
+    ? `${passed ? "✓" : "✗"} ${passed ? "Secuencia correcta" : "Secuencia incorrecta"}`
+    : `${passed ? "✓" : "✗"} ${codeLabel(answer.codigo)}`;
 
   // Explain the failure in plain words, naming the service at fault
   let why = "";
@@ -320,6 +404,9 @@ $("steps").addEventListener("click", (event) => {
   const id = event.target.dataset.run;
   if (id) runStep(STEPS.find((s) => s.id === id));
 });
+
+$("apiKey").addEventListener("input", updateRequestPreviews);
+$("checkApiKey").addEventListener("click", checkApiKey);
 
 $("runAll").addEventListener("click", async () => {
   $("runAll").disabled = true;
