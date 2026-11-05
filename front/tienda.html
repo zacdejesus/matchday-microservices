@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchday Tienda</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #1b2130; --muted: #6a7386; --line: #dde2ea;
+    --ok: #0f7d58; --ok-bg: #e2f4ec; --bad: #c42f3a; --bad-bg: #fde7e9;
+    --warn: #966000; --warn-bg: #fcf0d9; --accent: #1f6f4a; --accent-2: #e9f3ee; --code-bg: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11151a; --card: #1a2028; --text: #e7eaf0; --muted: #98a1b3; --line: #2b323d;
+      --ok: #4fc89b; --ok-bg: #12312a; --bad: #ff7d88; --bad-bg: #3a191e;
+      --warn: #f0b75b; --warn-bg: #382a11; --accent: #46b882; --accent-2: #173027; --code-bg: #232a35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  a { color: var(--accent); }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
+           border-radius: 10px; padding: 8px 16px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input, select { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line);
+                  border-radius: 10px; padding: 8px 10px; width: 100%; }
+  label { display: block; font-size: 13px; color: var(--muted); }
+  label > input, label > select { margin-top: 4px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+  h1 { margin: 0; font-size: 26px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .status { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .dot { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+         background: var(--card); border: 1px solid var(--line); }
+  .dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.up::before { background: var(--ok); }
+  .dot.down { border-color: var(--bad); color: var(--bad); }
+  .dot.down::before { background: var(--bad); }
+
+  .alert { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: var(--bad-bg); color: var(--bad); font-size: 14px; }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; }
+  section.locked { opacity: .5; pointer-events: none; }
+  .sec-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .sec-head h2 { margin: 0; font-size: 18px; }
+  .num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+         background: var(--accent); color: #fff; font-size: 14px; margin-right: 8px; }
+  .via { font-size: 12px; color: var(--muted); }
+
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-items: end; }
+
+  .items { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-top: 14px; }
+  .item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .item.top { border: 2px solid var(--accent); background: var(--accent-2); }
+  .item .team { font-weight: 600; }
+  .item .price { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .item .meta { font-size: 13px; color: var(--muted); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+         background: var(--accent); color: #fff; margin-bottom: 6px; }
+  .tag.gray { background: var(--code-bg); color: var(--muted); }
+  .reason { margin-top: 12px; font-size: 14px; color: var(--muted); }
+
+  .fin { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 680px) { .fin { grid-template-columns: 1fr; } }
+  .range-row { display: flex; gap: 10px; align-items: center; }
+  .range-row input[type=range] { flex: 1; padding: 0; }
+  .range-row b { min-width: 70px; text-align: right; }
+  .quote { border-radius: 12px; padding: 14px; background: var(--code-bg); }
+  .quote.ok { background: var(--ok-bg); }
+  .quote.bad { background: var(--bad-bg); }
+  .quote .big { font-size: 26px; font-weight: 700; }
+  .quote .verdict { font-weight: 700; }
+  .quote.ok .verdict { color: var(--ok); }
+  .quote.bad .verdict { color: var(--bad); }
+  .quote dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0; font-size: 14px; }
+  .quote dt { color: var(--muted); }
+  .quote dd { margin: 0; text-align: right; }
+  .quote p { margin: 6px 0 0; font-size: 14px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 4px; font-size: 13px; }
+  .hop { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
+  .hop.ok { border-color: var(--ok); color: var(--ok); background: var(--ok-bg); }
+  .hop.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-bg); font-weight: 600; }
+  .hop.skip { opacity: .45; }
+  .arrow { color: var(--muted); }
+
+  .error { margin-top: 12px; border-left: 4px solid var(--bad); background: var(--bad-bg); color: var(--text);
+           border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+  .error .code { font-weight: 700; color: var(--bad); }
+  .error .hint { color: var(--muted); margin-top: 4px; font-size: 13px; }
+  .success { margin-top: 12px; border-left: 4px solid var(--ok); background: var(--ok-bg);
+             border-radius: 8px; padding: 12px 14px; }
+  .success .big { font-size: 18px; font-weight: 700; color: var(--ok); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  .muted { color: var(--muted); }
+  footer { margin-top: 24px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>⚽ Matchday</h1>
+      <div class="sub">Tienda de equipaciones · Equipo 4 · <a href="/panel">Panel de pruebas</a></div>
+    </div>
+    <div class="status" id="status"><span class="muted">Comprobando servicios…</span></div>
+  </header>
+  <div id="statusAlert"></div>
+
+  <!-- 1. Search -->
+  <section id="sec1">
+    <div class="sec-head">
+      <h2><span class="num">1</span>¿Qué camiseta buscas?</h2>
+      <span class="via">Catálogo de <b>Datos</b> · recomendación de <b>Decisión</b></span>
+    </div>
+    <div class="grid">
+      <label>Equipo<select id="team"><option>Cargando…</option></select></label>
+      <label>Talla<select id="size">
+        <option>XS</option><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>XXL</option>
+      </select></label>
+      <label>Presupuesto (€)<input id="budget" type="number" min="1" step="1" value="100"></label>
+      <button id="search" class="primary">Buscar</button>
+    </div>
+    <div id="catalogHint" class="reason"></div>
+    <div id="searchResult"></div>
+  </section>
+
+  <!-- 2. Financing -->
+  <section id="sec2" class="locked">
+    <div class="sec-head">
+      <h2><span class="num">2</span>¿Cómo quieres pagar?</h2>
+      <span class="via">Simulación de <b>Decisión</b> · POST /financiacion</span>
+    </div>
+    <div class="fin">
+      <div>
+        <label>Ingresos mensuales (€)<input id="income" type="number" min="1" step="50" value="1200"></label>
+        <label style="margin-top:14px">Número de plazos
+          <div class="range-row"><input id="installments" type="range" min="1" max="24" value="6"><b id="installmentsOut">6 plazos</b></div>
+        </label>
+        <div class="muted" style="font-size:13px;margin-top:8px">1–3 plazos sin interés · 4–6: 3 % · 7–12: 6 % · 13–24: 10 %.<br>La cuota no puede pasar del 30 % de tus ingresos.</div>
+      </div>
+      <div id="quote" class="quote"><span class="muted">Elige una camiseta para ver la cuota.</span></div>
+    </div>
+  </section>
+
+  <!-- 3. Order -->
+  <section id="sec3" class="locked">
+    <div class="sec-head">
+      <h2><span class="num">3</span>Confirmar pedido</h2>
+      <span class="via">Lo gestiona <b>Puerta</b> · POST /pedidos con X-API-Key</span>
+    </div>
+    <div class="grid">
+      <label>Clave de la tienda (X-API-Key)<input id="apiKey"></label>
+      <button id="buy" class="primary" disabled>Comprar</button>
+    </div>
+    <div id="orderResult"></div>
+  </section>
+
+  <!-- 4. My orders -->
+  <section>
+    <div class="sec-head">
+      <h2><span class="num">4</span>Mis pedidos</h2>
+      <span class="via">Puerta · GET /pedidos</span>
+    </div>
+    <button id="loadOrders">Ver mis pedidos</button>
+    <div id="orders"></div>
+  </section>
+
+  <footer>
+    Arranca los servicios y este front desde la carpeta <code>equipo_4</code>: <code>python front/servidor.py</code>.
+    Puerta tiene un límite de 5 peticiones por minuto por clave.
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SERVICES = {
+  puerta: { name: "Puerta", port: 8000, start: "cd puerta && API_KEY=equipo4 python app.py" },
+  decision: { name: "Decisión", port: 8002, start: "cd decision && uvicorn main:app --port 8002 --reload" },
+  datos: { name: "Datos", port: 8001, start: "cd datos && python manage.py runserver 8001" },
+};
+const STATUS_TEXT = {
+  400: "Datos no válidos", 401: "Clave incorrecta o ausente", 404: "No encontrado", 405: "Método no permitido",
+  409: "Conflicto", 422: "Validación fallida", 429: "Demasiadas peticiones", 500: "Error interno", 503: "Servicio no disponible",
+};
+const state = { top: null, quote: null, quoteTimer: null, serviceStatus: {} };
+
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const euros = (n) => Number(n).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+
+try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
+$("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
+
+// All calls go through front/servidor.py, which forwards them to the service
+async function call(service, method, path, body = null, withKey = false) {
+  try {
+    const response = await fetch("/api/probar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ servicio: service, metodo: method, ruta: path, cuerpo: body,
+                             cabeceras: withKey ? { "X-API-Key": $("apiKey").value } : {} }),
+    });
+    return await response.json();
+  } catch {
+    return { codigo: null, error: "El front (front/servidor.py) no responde", frontDown: true };
+  }
+}
+
+// Human-readable error box saying which service failed and with which code
+function errorBox(answer, service) {
+  const s = SERVICES[service];
+  const detail = typeof answer.cuerpo?.detail === "string" ? answer.cuerpo.detail
+    : Array.isArray(answer.cuerpo?.detail) ? answer.cuerpo.detail.map((d) => `${d.loc?.slice(-1)[0]}: ${d.msg}`).join(" · ")
+    : "";
+  if (answer.frontDown) {
+    return `<div class="error"><span class="code">Sin conexión</span> · El front no responde.
+      <div class="hint">Arráncalo con <code>python front/servidor.py</code>.</div></div>`;
+  }
+  if (answer.codigo == null) {
+    return `<div class="error"><span class="code">${s.name} :${s.port} no responde</span>
+      <div class="hint">Arráncalo con <code>${esc(s.start)}</code></div></div>`;
+  }
+  let hint = "";
+  if (answer.codigo === 503) {
+    const culprit = /datos/i.test(detail) ? "datos" : /decisi/i.test(detail) ? "decision" : null;
+    if (culprit) hint = `El fallo viene de <b>${SERVICES[culprit].name} :${SERVICES[culprit].port}</b>. Arráncalo con <code>${esc(SERVICES[culprit].start)}</code>`;
+  } else if (answer.codigo === 401) {
+    hint = "Comprueba que la clave coincide con la variable API_KEY con la que se arrancó Puerta.";
+  } else if (answer.codigo === 429) {
+    hint = "Puerta admite 5 peticiones por minuto: espera un minuto y vuelve a intentarlo.";
+  } else if (answer.codigo >= 500) {
+    hint = `Mira la terminal de ${s.name}: ahí está el traceback.`;
+  }
+  return `<div class="error"><span class="code">${s.name} :${s.port} respondió ${answer.codigo} · ${STATUS_TEXT[answer.codigo] || ""}</span>
+    ${detail ? `<div>«${esc(detail)}»</div>` : ""}${hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
+}
+
+// ---- Service status --------------------------------------------------------
+async function checkStatus() {
+  let status;
+  try { status = await (await fetch("/api/estado")).json(); }
+  catch {
+    $("status").innerHTML = `<span class="dot down">Front</span>`;
+    $("statusAlert").innerHTML = `<div class="alert">El front no responde. Arráncalo con <code>python front/servidor.py</code>.</div>`;
+    return;
+  }
+  state.serviceStatus = status;
+  $("status").innerHTML = ["puerta", "decision", "datos"].map((k) =>
+    `<span class="dot ${status[k].codigo == null ? "down" : "up"}" title="${esc(status[k].error || `responde ${status[k].codigo}`)}">${status[k].nombre} :${status[k].puerto}</span>`).join("");
+  const down = ["puerta", "decision", "datos"].filter((k) => status[k].codigo == null);
+  $("statusAlert").innerHTML = down.length
+    ? `<div class="alert">⚠️ ${down.map((k) => `<b>${SERVICES[k].name}</b> (puerto ${SERVICES[k].port})`).join(" y ")} no ${down.length > 1 ? "responden" : "responde"}: la compra no funcionará hasta que ${down.length > 1 ? "los arranques" : "lo arranques"}.</div>`
+    : "";
+}
+
+// ---- Step 1: catalog + recommendation --------------------------------------
+let catalog = [];
+async function loadCatalog() {
+  const answer = await call("datos", "GET", "/equipaciones");
+  if (answer.codigo !== 200 || !Array.isArray(answer.cuerpo)) {
+    $("team").innerHTML = `<option value="">(sin catálogo)</option>`;
+    $("catalogHint").innerHTML = errorBox(answer, "datos");
+    return;
+  }
+  catalog = answer.cuerpo;
+  const teams = [...new Set(catalog.map((i) => i.equipo))].sort((a, b) => a.localeCompare(b, "es"));
+  $("team").innerHTML = teams.map((t) => `<option>${esc(t)}</option>`).join("");
+  $("catalogHint").innerHTML = "";
+  showSizesForTeam();
+}
+
+function showSizesForTeam() {
+  const team = $("team").value;
+  const items = catalog.filter((i) => i.equipo === team);
+  if (!items.length) { $("catalogHint").textContent = ""; return; }
+  const sizes = items.map((i) => `${i.talla}${i.stock > 0 ? "" : " (agotada)"}`);
+  $("catalogHint").textContent = `En el catálogo de ${team}: talla ${[...new Set(sizes)].join(", ")}.`;
+}
+$("team").addEventListener("change", showSizesForTeam);
+
+$("search").addEventListener("click", async () => {
+  const body = { equipo: $("team").value, talla: $("size").value, presupuesto: Number($("budget").value) };
+  $("search").disabled = true;
+  $("searchResult").innerHTML = `<div class="reason">Preguntando a Decisión…</div>`;
+  const answer = await call("decision", "POST", "/recomendar", body);
+  $("search").disabled = false;
+  resetAfterSearch();
+
+  if (answer.codigo !== 200) {
+    $("searchResult").innerHTML = errorBox(answer, "decision");
+    return;
+  }
+  const recs = answer.cuerpo.recomendaciones || [];
+  if (!recs.length) {
+    $("searchResult").innerHTML = `<div class="reason">😕 ${esc(answer.cuerpo.motivo)}. Prueba con otra talla o más presupuesto.</div>`;
+    return;
+  }
+  state.top = recs[0];
+  $("searchResult").innerHTML = `<div class="items">${recs.map((r, i) => `
+      <div class="item ${i === 0 ? "top" : ""}">
+        <span class="tag ${i === 0 ? "" : "gray"}">${i === 0 ? "La que te llevas" : "Alternativa"}</span>
+        <div class="team">${esc(r.equipo)}</div>
+        <div class="meta">Temporada ${esc(r.temporada)} · Talla ${esc(r.talla)} · ${r.stock} en stock</div>
+        <div class="price">${euros(r.precio)}</div>
+      </div>`).join("")}</div>
+    <div class="reason">${esc(answer.cuerpo.motivo)}.${recs.length > 1 ? " La tienda vende la primera recomendación: para otra, ajusta el presupuesto." : ""}</div>`;
+  $("sec2").classList.remove("locked");
+  $("sec3").classList.remove("locked");
+  requestQuote();
+});
+
+function resetAfterSearch() {
+  state.top = null; state.quote = null;
+  $("sec2").classList.add("locked"); $("sec3").classList.add("locked");
+  $("quote").className = "quote"; $("quote").innerHTML = `<span class="muted">Elige una camiseta para ver la cuota.</span>`;
+  $("buy").disabled = true; $("orderResult").innerHTML = "";
+}
+
+// ---- Step 2: financing simulation ------------------------------------------
+function requestQuote() {
+  $("installmentsOut").textContent = `${$("installments").value} plazo${$("installments").value === "1" ? "" : "s"}`;
+  clearTimeout(state.quoteTimer);
+  state.quoteTimer = setTimeout(getQuote, 250);
+}
+$("installments").addEventListener("input", requestQuote);
+$("income").addEventListener("input", requestQuote);
+
+async function getQuote() {
+  if (!state.top) return;
+  const body = { importe: state.top.precio, ingresos_mensuales: Number($("income").value), plazos: Number($("installments").value) };
+  const answer = await call("decision", "POST", "/financiacion", body);
+  if (answer.codigo !== 200) {
+    state.quote = null; $("buy").disabled = true;
+    $("quote").className = "quote"; $("quote").innerHTML = errorBox(answer, "decision");
+    return;
+  }
+  const q = answer.cuerpo;
+  state.quote = q;
+  $("quote").className = `quote ${q.aprobada ? "ok" : "bad"}`;
+  $("quote").innerHTML = `
+    <div class="verdict">${q.aprobada ? "✅ Financiación aprobada" : "❌ Financiación rechazada"}</div>
+    <div class="big">${euros(q.cuota_mensual)} <span class="muted" style="font-size:14px;font-weight:400">/ mes</span></div>
+    <dl>
+      <dt>Precio</dt><dd>${euros(state.top.precio)}</dd>
+      <dt>Interés</dt><dd>${(q.interes_aplicado * 100).toLocaleString("es-ES")} %</dd>
+      <dt>Total a pagar</dt><dd><b>${euros(q.total_a_pagar)}</b></dd>
+    </dl>
+    <p>${esc(q.explicacion || q.motivo)}</p>`;
+  $("buy").disabled = !q.aprobada;
+  $("buy").title = q.aprobada ? "" : "Con estos datos la financiación no se aprueba";
+}
+
+// ---- Step 3: order through Puerta ------------------------------------------
+function flowStrip(result) {
+  // result: "ok" | {fail: service}
+  const hops = ["puerta", "decision", "datos"];
+  const failAt = result === "ok" ? -1 : hops.indexOf(result.fail);
+  return `<div class="flow"><span class="hop ok">🛒 Tienda</span>` + hops.map((k, i) => {
+    let cls = "ok";
+    if (failAt !== -1) cls = i < failAt ? "ok" : i === failAt ? "bad" : "skip";
+    const label = k === "puerta" ? "Puerta: valida clave y pedido" : k === "decision" ? "Decisión: recomienda y financia" : "Datos: descuenta stock";
+    return `<span class="arrow">→</span><span class="hop ${cls}">${cls === "bad" ? "✗" : cls === "ok" ? "✓" : "·"} ${label}</span>`;
+  }).join("") + `</div>`;
+}
+
+$("buy").addEventListener("click", async () => {
+  const body = {
+    equipo: state.top.equipo, talla: state.top.talla, presupuesto: Number($("budget").value),
+    ingresos_mensuales: Number($("income").value), plazos: Number($("installments").value),
+  };
+  $("buy").disabled = true;
+  $("orderResult").innerHTML = `<div class="reason">Enviando el pedido a Puerta…</div>`;
+  const answer = await call("puerta", "POST", "/pedidos", body, true);
+  $("buy").disabled = !state.quote?.aprobada;
+
+  if (answer.codigo === 201) {
+    const o = answer.cuerpo, e = o.equipacion, f = o.financiacion;
+    $("orderResult").innerHTML = flowStrip("ok") + `<div class="success">
+      <div class="big">🎉 Pedido #${o.id} confirmado</div>
+      <div>${esc(e.equipo)} ${esc(e.temporada)}, talla ${esc(e.talla)} · ${euros(e.precio)}</div>
+      <div>${o.plazos} cuota${o.plazos === 1 ? "" : "s"} de <b>${euros(f.cuota_mensual)}</b>${f.total_a_pagar ? ` · total ${euros(f.total_a_pagar)}` : ""}</div>
+      <div class="muted" style="font-size:13px;margin-top:4px">Quedan ${e.stock} en stock. Puerta respondió 201.</div></div>`;
+    checkStatus();
+    return;
+  }
+
+  // Work out which hop failed to colour the strip
+  const detail = String(answer.cuerpo?.detail || "");
+  let fail = "puerta";
+  if (answer.codigo === 503 && /datos/i.test(detail)) fail = "datos";
+  else if (answer.codigo === 503 && /decisi/i.test(detail)) fail = "decision";
+  else if (answer.codigo === 409) fail = /stock/i.test(detail) ? "datos" : "decision";
+  else if (answer.codigo === 400 && /financi|cuota|ingresos/i.test(detail)) fail = "decision";
+  $("orderResult").innerHTML = flowStrip({ fail }) + errorBox(answer, "puerta");
+  checkStatus();
+});
+
+// ---- Step 4: orders --------------------------------------------------------
+$("loadOrders").addEventListener("click", async () => {
+  const answer = await call("puerta", "GET", "/pedidos", null, true);
+  if (answer.codigo !== 200) { $("orders").innerHTML = errorBox(answer, "puerta"); return; }
+  const orders = answer.cuerpo;
+  if (!orders.length) { $("orders").innerHTML = `<div class="reason">Todavía no hay pedidos.</div>`; return; }
+  $("orders").innerHTML = `<div class="table-wrap"><table>
+    <tr><th>#</th><th>Camiseta</th><th>Talla</th><th>Precio</th><th>Plazos</th><th>Cuota</th></tr>
+    ${orders.map((o) => `<tr><td>${o.id}</td><td>${esc(o.equipacion.equipo)} ${esc(o.equipacion.temporada)}</td>
+      <td>${esc(o.equipacion.talla)}</td><td>${euros(o.equipacion.precio)}</td><td>${o.plazos}</td>
+      <td>${euros(o.financiacion.cuota_mensual)}</td></tr>`).join("")}</table></div>`;
+});
+
+checkStatus();
+loadCatalog();
+setInterval(checkStatus, 5000);
+</script>
+</body>
+</html>

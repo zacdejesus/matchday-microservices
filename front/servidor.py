@@ -1,11 +1,11 @@
 """Test panel for the three services – Team 4.
 
-Serves index.html and forwards requests to the services from Python,
-so the browser never hits CORS problems.
+Serves the shop (/) and the test panel (/panel), and forwards requests
+to the services from Python, so the browser never hits CORS problems.
 
 Run from the equipo_4 folder (standard library only, nothing to install):
     python front/servidor.py
-Then open http://localhost:8080
+Then open http://localhost:8080 (shop) or http://localhost:8080/panel
 """
 
 import json
@@ -17,7 +17,8 @@ from pathlib import Path
 
 PORT = 8080
 TIMEOUT_SECONDS = 3
-INDEX = Path(__file__).with_name("index.html")
+HERE = Path(__file__).parent
+PAGES = {"/": "tienda.html", "/tienda": "tienda.html", "/panel": "panel.html"}
 
 # Only these targets can be reached, so the panel is not an open proxy
 SERVICES = {
@@ -77,8 +78,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
-            raw = INDEX.read_bytes()
+        if self.path in PAGES:
+            raw = (HERE / PAGES[self.path]).read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(raw)))
@@ -115,5 +116,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Panel de pruebas en http://localhost:{PORT}  (Ctrl+C para salir)")
+    print(f"Tienda en http://localhost:{PORT}  ·  panel de pruebas en http://localhost:{PORT}/panel  (Ctrl+C para salir)")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

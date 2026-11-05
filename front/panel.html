@@ -79,7 +79,7 @@
   <header>
     <div>
       <h1>⚽ Matchday · Panel de pruebas</h1>
-      <div class="muted">Equipo 4: Puerta :8000 · Datos :8001 · Decisión :8002</div>
+      <div class="muted">Equipo 4: Puerta :8000 · Datos :8001 · Decisión :8002 · <a href="/" style="color:var(--accent)">Ir a la tienda →</a></div>
     </div>
     <div class="toolbar">
       <label>X-API-Key <input id="apiKey" size="14"></label>
@@ -102,8 +102,8 @@ pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload</pre></li>
     <li><b>Puerta</b> (Flask): <pre>cd puerta
 pip install -r requirements.txt
-flask --app app run --port 8000</pre>
-      <span class="muted">(si el archivo no se llama app.py, cambia <code>--app</code>)</span></li>
+API_KEY=equipo4 python app.py</pre>
+      <span class="muted">(la clave tiene que coincidir con la del campo X-API-Key de arriba)</span></li>
     <li><b>Este panel</b>: <pre>python front/servidor.py</pre> y abre <code>http://localhost:8080</code>.</li>
     <li>Cuando las tres tarjetas de arriba estén en verde, pulsa <b>Probar todo</b> o ve paso a paso.</li>
   </ol>
@@ -167,8 +167,7 @@ const STEPS = [
   { group: "Casos de uso por la Puerta (Evaristo)", id: "CU3", title: "Pedido completo Puerta → Decisión → Datos", needs: ["puerta", "decision", "datos"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [201] },
   { group: "Casos de uso por la Puerta (Evaristo)", id: "CU4", title: "Recurso que no existe: el 404 llega al usuario", needs: ["puerta"],
-    service: "puerta", method: "GET", path: "/pedidos/999", key: true, expect: [404],
-    note: "Ruta provisional: el CU4 sigue pendiente de decidir en el contrato." },
+    service: "puerta", method: "GET", path: "/pedidos/999", key: true, expect: [404] },
 
   { group: "Pruebas manuales", id: "CU5", title: "Datos apagado: la Puerta responde 503 con mensaje claro", needs: ["puerta", "decision"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [503], manual: true,
@@ -195,7 +194,7 @@ const codeLabel = (code) => code == null ? "sin respuesta" : `${code} ${STATUS_T
 const START_HINT = {
   datos: "cd datos && python manage.py runserver 8001",
   decision: "cd decision && uvicorn main:app --port 8002 --reload",
-  puerta: "cd puerta && flask --app app run --port 8000",
+  puerta: "cd puerta && API_KEY=equipo4 python app.py",
 };
 
 try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
