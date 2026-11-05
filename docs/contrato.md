@@ -177,8 +177,10 @@ Devuelve `{ "estado": "ok" }`. Sirve para que Puerta compruebe si Decisión est�
 |---|---|---|---|---|
 | POST | `/pedidos` | cabecera `X-API-Key` + `{equipo, talla, presupuesto, ingresos_mensuales, plazos, temporada?}` | el pedido creado | 201 · 400 · 401 · 409 · 429 · 503 |
 | GET | `/pedidos` | cabecera `X-API-Key` | lista de pedidos | 200 · 401 |
+| GET | `/limite` | cabecera `X-API-Key` | estado de las peticiones de esa clave en la ventana actual | 200 · 401 |
 
 - Sin clave o con clave incorrecta: 401. Más de 5 peticiones por minuto con la misma clave: 429.
+- `GET /limite` no consume el límite. Devuelve `en_ventana`, `limite`, `disponibles` y `espera_segundos` (hasta que caduque la petición más antigua); los contadores del panel y la tienda consultan este estado real de Puerta, compartido por los clientes que usan la misma clave.
 - Flujo de `POST /pedidos` (Evaristo, confirma):
   1. `POST :8002/recomendar` → si la lista está vacía, 409 (no hay nada que vender).
   2. Elige la primera recomendación.
