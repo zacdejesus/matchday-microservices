@@ -114,7 +114,10 @@ pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload
 ```
 
-`# Datos (Django) – Antonio: completar`
+`# Datos (Django) – Antonio: completar
+cd datos
+pip install -r requirements.txt
+python manage.py runserver 8001`
 
 ```bash
 # Puerta (Flask), puerto 8000; en otra terminal, desde la raíz del repositorio
