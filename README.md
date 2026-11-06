@@ -97,8 +97,8 @@ Lo que ve el usuario: orquesta el flujo y protege la API.
 
 | Método | Ruta | Qué hace | Códigos |
 |---|---|---|---|
-| POST | `/recomendar` | Recibe `{equipo, presupuesto, talla}`, consulta Datos y devuelve las 3 mejores | 200 · 422 · 503 |
-| POST | `/financiacion` | Recibe `{importe, ingresos_mensuales, plazos}` y devuelve `{aprobada, cuota_mensual, motivo}` | 200 · 422 |
+| POST | `/recomendar` | Recibe `{equipo, presupuesto, talla, temporada?}`, consulta Datos y devuelve las 3 mejores | 200 · 422 · 503 |
+| POST | `/financiacion` | Recibe `{importe, ingresos_mensuales, plazos}` y devuelve `{aprobada, cuota_mensual, motivo}` + reto: `interes_aplicado`, `total_a_pagar`, `explicacion` | 200 · 422 |
 | GET | `/salud` | Comprueba que el servicio está vivo | 200 |
 
 ---
@@ -130,6 +130,16 @@ API_KEY="una-clave-local" python app.py
 En las peticiones a Puerta, envía `X-API-Key: una-clave-local` (o la misma
 clave que hayas configurado en la variable `API_KEY`).
 
+```bash
+# Extra: tienda y panel de pruebas, puerto 8080; desde la raíz del repositorio
+python front/servidor.py
+# Tienda: http://localhost:8080 · Panel de pruebas: http://localhost:8080/panel
+```
+
+**En varios ordenadores:** cada servicio lee la dirección de los demás de variables
+de entorno (`DATA_URL`, `DECISION_URL`, `PUERTA_URL`). Los pasos (IP, firewall,
+`0.0.0.0`) están en [`hoja de ruta/despliegue-en-varios-ordenadores.md`](hoja%20de%20ruta/despliegue-en-varios-ordenadores.md).
+
 ## ✅ Casos de uso que tiene que cumplir el equipo
 
 | Caso | Qué se comprueba |
@@ -150,6 +160,7 @@ matchday-microservices/
 ├── datos/
 ├── decision/
 ├── puerta/
+├── front/            (extra: tienda y panel de pruebas)
 ├── docs/contrato.md
 ├── tests_integracion/
 │   ├── test_integracion.py
@@ -158,22 +169,27 @@ matchday-microservices/
 └── README.md
 ```
 
-## Evaristo · Puerta: framework y uso de IA
 
-Se eligió **Flask** por ser ligero y sencillo para este servicio, que valida las peticiones del usuario y coordina las llamadas HTTP a Decisión y Datos.
+## Alejandro · Decisión: framework y uso de IA
 
-Se usó IA como apoyo para implementar la autenticación con `X-API-Key`, el límite de cinco peticiones por minuto y el flujo de pedidos. La propuesta se
-contrastó con las rutas y los campos del contrato y de los servicios; se concretaron las respuestas para financiación denegada y recomendación vacía.
-También se añadieron pruebas unitarias con las llamadas HTTP simuladas y un script para comprobar el límite. El código y las pruebas se revisaron antes de incorporarlos.
+Se eligió **FastAPI** porque Decisión recibe datos que hay que validar con reglas
+concretas (importe mayor que 0, plazos entre 1 y 24, talla de una lista) y FastAPI
+lo hace de forma declarativa con modelos de pydantic: si algo no cumple, responde
+422 sin escribir validaciones a mano. Además genera la documentación interactiva
+en `/docs`, que sirvió para probar el servicio, y trabaja con tipos, algo familiar
+viniendo de Swift.
 
-## Antonio · Datos: framework y uso de IA
+Se usó IA (Claude Code) para generar el código de las rutas `/financiacion` y
+`/recomendar` a partir del contrato: el cálculo de la cuota con el interés por
+tramos, la explicación en lenguaje natural, la llamada a Datos con `requests` y
+`timeout`, y el filtrado y ordenación de las recomendaciones. También se le pidió
+un front extra (tienda y panel de pruebas) para ver qué servicio falla y con qué
+código, y tambien se hizo uso de la IA para debuggear porque no se podia llegar los otros ordenadores
+teniendo que hacer comandos en el terminal.
 
-Se eligió Django para el servicio Datos porque obliga a organizar el código en archivos (`views.py` y `urls.py`) y porque quería aprender un framework que no había usado. Es el servicio más sencillo de los tres, así que había tiempo para aprenderlo.
 
-Se usó IA como apoyo para instalar Django, organizar el proyecto, escribir las vistas de las rutas (GET, POST, PUT, DELETE y PATCH) y subir el trabajo a GitHub. La propuesta se contrastó con el contrato: se cambió el formato de error a `detail`, se añadió la validación de `talla` y `temporada`, y se hizo el reto (10 equipaciones y el filtro `max_precio`). Cada ruta se probó con Thunder Client, comprobando los códigos 200, 201, 204, 400, 404 y 409, y se guardaron capturas. También se corrigieron errores que fueron saliendo, como la sangría del código y una petición PUT sin el `id` en la ruta. El código se revisó antes de incorporarlo.
-
-## Pendiente para el README final
-
-- [ ] Por qué cada uno eligió su framework.
-- [ ] Cómo arrancar Datos y Puerta.
-- [ ] **Uso de IA:** qué le preguntamos y qué cambiamos de lo que nos respondió (cada uno su parte).
+Lo que se revisó y cambió: se comprobó cada respuesta contra el contrato (el ejemplo
+de 179,90 € en 6 plazos da 30,88 € de cuota y 185,30 € de total), cada tramo de
+interés, los datos no válidos (422) y Datos apagado (503). Evaristo añadió después
+el filtro opcional por `temporada` en `/recomendar`, que se revisó y probó. Con
+los tres servicios en marcha pasan `test_integracion.py` y `puerta/test_app.py`.

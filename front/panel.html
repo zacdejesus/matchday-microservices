@@ -107,7 +107,7 @@ pip install -r requirements.txt
 uvicorn main:app --port 8002 --reload</pre></li>
     <li><b>Puerta</b> (Flask): <pre>cd puerta
 pip install -r requirements.txt
-API_KEY=equipo4 python app.py</pre>
+API_KEY=una-clave-local python app.py</pre>
       <span class="muted">(la clave tiene que coincidir con la del campo X-API-Key de arriba)</span></li>
     <li><b>Este panel</b>: <pre>python front/servidor.py</pre> y abre <code>http://localhost:8080</code>.</li>
     <li>Cuando las tres tarjetas de arriba estén en verde, pulsa <b>Probar todo</b> o ve paso a paso.</li>
@@ -260,10 +260,10 @@ const codeLabel = (code) => code == null ? "sin respuesta" : `${code} ${STATUS_T
 const START_HINT = {
   datos: "cd datos && python manage.py runserver 8001",
   decision: "cd decision && uvicorn main:app --port 8002 --reload",
-  puerta: "cd puerta && API_KEY=equipo4 python app.py",
+  puerta: "cd puerta && API_KEY=una-clave-local python app.py",
 };
 
-try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
+try { $("apiKey").value = localStorage.getItem("apiKey") || "una-clave-local"; } catch { $("apiKey").value = "una-clave-local"; }
 $("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
 refreshDoorRequestTimer();
 
