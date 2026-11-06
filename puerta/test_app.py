@@ -47,6 +47,41 @@ class PuertaTests(unittest.TestCase):
             self.assertEqual(response.status_code, 429)
             self.assertIn("Retry-After", response.headers)
 
+    def test_limit_status_reports_real_requests_without_consuming_limit(self):
+        with patch.object(puerta, "monotonic", return_value=100):
+            for _ in range(5):
+                self.assertEqual(self.client.get("/pedidos", headers=self.headers).status_code, 200)
+
+        with patch.object(puerta, "monotonic", return_value=105):
+            response = self.client.get("/limite", headers=self.headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json, {
+                "en_ventana": 5,
+                "limite": 5,
+                "disponibles": 0,
+                "espera_segundos": 55,
+            })
+            self.assertEqual(self.client.get("/pedidos", headers=self.headers).status_code, 429)
+            self.assertEqual(self.client.get("/limite", headers=self.headers).json["en_ventana"], 5)
+
+    def test_limit_status_requires_api_key(self):
+        response = self.client.get("/limite")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(puerta._request_times, {})
+
+    def test_limit_status_drops_expired_requests(self):
+        with patch.object(puerta, "monotonic", return_value=100):
+            self.assertEqual(self.client.get("/pedidos", headers=self.headers).status_code, 200)
+
+        with patch.object(puerta, "monotonic", return_value=160):
+            response = self.client.get("/limite", headers=self.headers)
+        self.assertEqual(response.json, {
+            "en_ventana": 0,
+            "limite": 5,
+            "disponibles": 5,
+            "espera_segundos": 0,
+        })
+
     def test_missing_fields_return_400(self):
         response = self.client.post(
             "/pedidos",
