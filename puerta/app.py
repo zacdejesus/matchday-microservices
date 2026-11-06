@@ -1,7 +1,7 @@
 """Flask gateway for the equipment shop (port 8000)."""
 
 from collections import deque
-from math import isfinite
+from math import ceil, isfinite
 import hmac
 import os
 import re
@@ -78,21 +78,39 @@ def _validate_order(payload):
     return None
 
 
+def _prune_request_times(timestamps, now):
+    while timestamps and now - timestamps[0] >= RATE_LIMIT_WINDOW_SECONDS:
+        timestamps.popleft()
+
+
 def _limit_exceeded(api_key):
     now = monotonic()
     with _rate_limit_lock:
         timestamps = _request_times.setdefault(api_key, deque())
-        while timestamps and now - timestamps[0] >= RATE_LIMIT_WINDOW_SECONDS:
-            timestamps.popleft()
+        _prune_request_times(timestamps, now)
         if len(timestamps) >= MAX_REQUESTS_PER_MINUTE:
-            return True, max(1, int(RATE_LIMIT_WINDOW_SECONDS - (now - timestamps[0])))
+            return True, max(1, ceil(RATE_LIMIT_WINDOW_SECONDS - (now - timestamps[0])))
         timestamps.append(now)
         return False, None
 
 
+def _rate_limit_status(api_key):
+    now = monotonic()
+    with _rate_limit_lock:
+        timestamps = _request_times.get(api_key)
+        if timestamps is None:
+            return 0, 0
+        _prune_request_times(timestamps, now)
+        if not timestamps:
+            _request_times.pop(api_key, None)
+            return 0, 0
+        seconds_until_next = max(0, ceil(RATE_LIMIT_WINDOW_SECONDS - (now - timestamps[0])))
+        return len(timestamps), seconds_until_next
+
+
 @app.before_request
 def protect_orders():
-    if request.endpoint not in {"list_orders", "create_order"}:
+    if request.endpoint not in {"list_orders", "create_order", "rate_limit_status"}:
         return None
 
     configured_key = app.config.get("API_KEY")
@@ -104,6 +122,9 @@ def protect_orders():
         or not hmac.compare_digest(supplied_key, configured_key)
     ):
         return error("API key no válida o ausente", 401)
+
+    if request.endpoint == "rate_limit_status":
+        return None
 
     exceeded, retry_after = _limit_exceeded(supplied_key)
     if exceeded:
@@ -150,6 +171,17 @@ def _service_error(response, service_name):
 def list_orders():
     with _orders_lock:
         return jsonify(list(_orders))
+
+
+@app.get("/limite")
+def rate_limit_status():
+    count, seconds_until_next = _rate_limit_status(request.headers["X-API-Key"])
+    return jsonify({
+        "en_ventana": count,
+        "limite": MAX_REQUESTS_PER_MINUTE,
+        "disponibles": MAX_REQUESTS_PER_MINUTE - count,
+        "espera_segundos": seconds_until_next,
+    }), 200
 
 
 @app.post("/pedidos")

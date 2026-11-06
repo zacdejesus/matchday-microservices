@@ -107,12 +107,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"detail": "No existe"}, 404)
 
     def do_POST(self):
-        if self.path != "/api/probar":
+        if self.path not in {"/api/probar", "/api/limite"}:
             self.send_json({"detail": "No existe"}, 404)
             return
         try:
             length = int(self.headers.get("Content-Length", 0))
             order = json.loads(self.rfile.read(length) or b"{}")
+            if self.path == "/api/limite":
+                api_key = order["api_key"]
+                if not isinstance(api_key, str) or not api_key:
+                    raise ValueError
+                self.send_json(call_service(
+                    "puerta", "GET", "/limite", headers={"X-API-Key": api_key},
+                ))
+                return
+
             service = order["servicio"]
             method = order.get("metodo", "GET").upper()
             path = order.get("ruta", "/")

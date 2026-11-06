@@ -163,17 +163,17 @@ const STEPS = [
     service: "decision", method: "POST", path: "/recomendar",
     body: { equipo: "Betis", presupuesto: 100, talla: "M" }, expect: [200] },
 
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1", title: "Listar pedidos con clave válida", needs: ["puerta"],
+  { group: "Puerta (Evaristo)", id: "CU1", title: "Listar pedidos con clave válida", needs: ["puerta"],
     service: "puerta", method: "GET", path: "/pedidos", key: true, expect: [200] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1b", title: "Listar pedidos sin clave", needs: ["puerta"],
+  { group: "Puerta (Evaristo)", id: "CU1b", title: "Listar pedidos sin clave", needs: ["puerta"],
     service: "puerta", method: "GET", path: "/pedidos", expect: [401] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU1c", title: "Listar pedidos con clave incorrecta", needs: ["puerta"],
+  { group: "Puerta (Evaristo)", id: "CU1c", title: "Listar pedidos con clave incorrecta", needs: ["puerta"],
     service: "puerta", method: "GET", path: "/pedidos", key: true, wrongKey: true, expect: [401] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU2", title: "Crear pedido sin talla", needs: ["puerta"],
+  { group: "Puerta (Evaristo)", id: "CU2", title: "Crear pedido sin talla", needs: ["puerta"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: ORDER_WITHOUT_SIZE, expect: [400] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU3", title: "Pedido completo Puerta → Decisión → Datos", needs: ["puerta", "decision", "datos"],
+  { group: "Puerta (Evaristo)", id: "CU3", title: "Pedido completo Puerta → Decisión → Datos", needs: ["puerta", "decision", "datos"],
     service: "puerta", method: "POST", path: "/pedidos", key: true, body: VALID_ORDER, expect: [201] },
-  { group: "Casos de uso por la Puerta (Evaristo)", id: "CU4", title: "Equipo sin recomendaciones disponibles", needs: ["puerta", "decision", "datos"],
+  { group: "Puerta (Evaristo)", id: "CU4", title: "Equipo sin recomendaciones disponibles", needs: ["puerta", "decision", "datos"],
     service: "puerta", method: "POST", path: "/pedidos", key: true,
     body: { ...VALID_ORDER, equipo: "EquipoQueNoExiste" }, expect: [409] },
 
@@ -189,12 +189,8 @@ const STEPS = [
 // ---- Helpers ---------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 let lastStatus = {};
-const DOOR_REQUEST_STORAGE_KEY = "doorRequestTimestamps";
-const LEGACY_DOOR_REQUEST_STORAGE_KEY = "doorLastRequestAt";
-const DOOR_INSTANCE_STORAGE_KEY = "doorServiceInstanceId";
-const DOOR_REQUEST_WINDOW_MS = 60_000;
-let doorRequestTimes = [];
-let lastDoorRequestAt = null;
+let doorRateLimit = null;
+let doorRateLimitFetchedAt = 0;
 
 const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pretty = (value) => escapeHtml(typeof value === "string" ? value : JSON.stringify(value, null, 2));
@@ -202,83 +198,57 @@ const pretty = (value) => escapeHtml(typeof value === "string" ? value : JSON.st
 function updateDoorRequestTimer() {
   const timer = $("doorRequestTimer");
   if (!timer) return;
-  const now = Date.now();
-  try {
-    const stored = localStorage.getItem(DOOR_REQUEST_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      doorRequestTimes = Array.isArray(parsed)
-        ? parsed.filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0)
-        : [];
-    } else {
-      doorRequestTimes = [];
-    }
-    const storedLastRequest = Number(localStorage.getItem(LEGACY_DOOR_REQUEST_STORAGE_KEY));
-    lastDoorRequestAt = Number.isFinite(storedLastRequest) && storedLastRequest > 0 && storedLastRequest <= now
-      ? storedLastRequest
-      : null;
-  } catch {
-    doorRequestTimes = doorRequestTimes.filter((timestamp) => Number.isFinite(timestamp));
+  if (!doorRateLimit) {
+    timer.textContent = "Puerta: consultando límite…";
+    timer.className = "badge idle";
+    return;
+  }
+  if (doorRateLimit.codigo === 401) {
+    timer.textContent = "Puerta: API key no válida";
+    timer.className = "badge bad";
+    return;
+  }
+  if (doorRateLimit.codigo !== 200 || !doorRateLimit.cuerpo) {
+    timer.textContent = "Puerta: estado no disponible";
+    timer.className = "badge bad";
+    return;
   }
 
-  const newestRecordedRequest = Math.max(...doorRequestTimes.filter((timestamp) => timestamp <= now));
-  if (Number.isFinite(newestRecordedRequest) &&
-      (lastDoorRequestAt === null || newestRecordedRequest > lastDoorRequestAt)) {
-    lastDoorRequestAt = newestRecordedRequest;
-  }
-  doorRequestTimes = doorRequestTimes.filter(
-    (timestamp) => timestamp <= now && now - timestamp < DOOR_REQUEST_WINDOW_MS,
-  );
-  const count = doorRequestTimes.length;
-  const elapsedSeconds = Number.isFinite(lastDoorRequestAt)
-    ? Math.floor((now - lastDoorRequestAt) / 1000)
-    : null;
-  const elapsed = elapsedSeconds === null
-    ? "sin peticiones"
-    : `hace ${String(Math.floor(elapsedSeconds / 60)).padStart(2, "0")}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
-  const requestLabel = count === 1 ? "petición" : "peticiones";
-  timer.textContent = `Puerta: última ${elapsed} · ${count} ${requestLabel} en los últimos 60 s`;
-  timer.className = `badge ${count >= 5 ? "warn" : "idle"}`;
+  const { en_ventana: count, limite: limit, disponibles: available, espera_segundos: wait } = doorRateLimit.cuerpo;
+  const seconds = Math.max(0, Math.ceil(wait - (Date.now() - doorRateLimitFetchedAt) / 1000));
+  const countdown = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  const activeRequests = count === 1 ? "petición" : "peticiones";
+  const expiry = seconds > 0 ? ` · primera caduca en ${countdown}` : "";
+  timer.textContent = count >= limit
+    ? `Puerta: ${count}/${limit} peticiones · se libera en ${countdown}`
+    : `Puerta: ${count}/${limit} ${activeRequests} · ${available} disponibles${count > 0 ? expiry : " · sin espera"}`;
+  timer.className = `badge ${count >= limit ? "warn" : "idle"}`;
 }
 
-function recordDoorRequest() {
-  const now = Date.now();
-  lastDoorRequestAt = now;
-  doorRequestTimes = [...doorRequestTimes, now].filter(
-    (timestamp) => timestamp <= now && now - timestamp < DOOR_REQUEST_WINDOW_MS,
-  );
-  try { localStorage.setItem(DOOR_REQUEST_STORAGE_KEY, JSON.stringify(doorRequestTimes)); } catch {}
-  try { localStorage.setItem(LEGACY_DOOR_REQUEST_STORAGE_KEY, String(now)); } catch {}
+async function refreshDoorRequestTimer() {
+  const apiKey = $("apiKey").value.trim();
+  if (!apiKey) {
+    doorRateLimit = { codigo: 401 };
+    updateDoorRequestTimer();
+    return;
+  }
+  try {
+    const response = await fetch("/api/limite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey }),
+    });
+    doorRateLimit = await response.json();
+  } catch {
+    doorRateLimit = { codigo: null };
+  }
+  doorRateLimitFetchedAt = Date.now();
   updateDoorRequestTimer();
 }
 
-function observeDoorServiceInstance(instanceId, requestAt = null) {
-  if (typeof instanceId !== "string" || !instanceId) return;
-  let previousInstanceId = null;
-  try { previousInstanceId = localStorage.getItem(DOOR_INSTANCE_STORAGE_KEY); } catch {}
-  if (previousInstanceId === instanceId) return;
-
-  try { localStorage.setItem(DOOR_INSTANCE_STORAGE_KEY, instanceId); } catch {}
-  if (previousInstanceId !== null) {
-    doorRequestTimes = requestAt === null ? [] : [requestAt];
-    lastDoorRequestAt = requestAt;
-    try { localStorage.setItem(DOOR_REQUEST_STORAGE_KEY, JSON.stringify(doorRequestTimes)); } catch {}
-    if (requestAt === null) {
-      try { localStorage.removeItem(LEGACY_DOOR_REQUEST_STORAGE_KEY); } catch {}
-    } else {
-      try { localStorage.setItem(LEGACY_DOOR_REQUEST_STORAGE_KEY, String(requestAt)); } catch {}
-    }
-    updateDoorRequestTimer();
-  }
-}
-
-window.addEventListener("storage", (event) => {
-  if ([DOOR_REQUEST_STORAGE_KEY, LEGACY_DOOR_REQUEST_STORAGE_KEY, DOOR_INSTANCE_STORAGE_KEY].includes(event.key)) {
-    updateDoorRequestTimer();
-  }
-});
 updateDoorRequestTimer();
 setInterval(updateDoorRequestTimer, 1000);
+setInterval(refreshDoorRequestTimer, 5000);
 
 const STATUS_TEXT = {
   200: "OK", 201: "Creado", 204: "Sin contenido", 400: "Datos mal enviados", 401: "Sin clave o clave incorrecta",
@@ -295,6 +265,7 @@ const START_HINT = {
 
 try { $("apiKey").value = localStorage.getItem("apiKey") || "equipo4"; } catch { $("apiKey").value = "equipo4"; }
 $("apiKey").addEventListener("change", () => { try { localStorage.setItem("apiKey", $("apiKey").value); } catch {} });
+refreshDoorRequestTimer();
 
 async function checkApiKey() {
   const key = $("apiKey").value.trim();
@@ -330,14 +301,12 @@ async function checkApiKey() {
 }
 
 async function probe(order) {
-  const requestAt = order.servicio === "puerta" ? Date.now() : null;
-  if (requestAt !== null) recordDoorRequest();
   try {
     const response = await fetch("/api/probar", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order),
     });
     const answer = await response.json();
-    if (requestAt !== null) observeDoorServiceInstance(answer.instancia, requestAt);
+    if (order.servicio === "puerta") refreshDoorRequestTimer();
     return answer;
   } catch {
     return { codigo: null, error: "El panel (front/servidor.py) no responde: ¿está arrancado?" };
@@ -350,7 +319,6 @@ async function checkServices() {
   try {
     const response = await fetch("/api/estado");
     lastStatus = await response.json();
-    observeDoorServiceInstance(lastStatus.puerta?.instancia);
   } catch {
     $("banner").className = "banner bad";
     $("banner").innerHTML = "❌ El panel no responde. Arráncalo con <code>python front/servidor.py</code>.";
@@ -388,7 +356,7 @@ function renderSteps() {
   for (const step of STEPS) {
     if (step.group !== group) {
       group = step.group;
-      const requestCounter = group === "Casos de uso por la Puerta (Evaristo)"
+      const requestCounter = group === "Puerta (Evaristo)"
         ? `<span class="badge idle" id="doorRequestTimer" role="timer" aria-live="off"
             title="Última petición y recuento local de peticiones enviadas desde esta tienda y este panel; no incluye otros clientes."></span>`
         : "";
@@ -507,6 +475,7 @@ $("steps").addEventListener("click", (event) => {
 });
 
 $("apiKey").addEventListener("input", updateRequestPreviews);
+$("apiKey").addEventListener("change", refreshDoorRequestTimer);
 $("checkApiKey").addEventListener("click", checkApiKey);
 
 $("runAll").addEventListener("click", async () => {
@@ -542,7 +511,6 @@ $("freeSend").addEventListener("click", async () => {
 
 $("refresh").addEventListener("click", checkServices);
 renderSteps();
-updateDoorRequestTimer();
 checkServices();
 setInterval(checkServices, 5000);
 </script>
